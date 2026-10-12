@@ -6,8 +6,7 @@ passengers** (arrival, service start, service end); FLOWSENSE validates the
 data and turns it into passenger-weighted KPIs, staffing recommendations and
 PDF reports.
 
-> **Build status.** FLOWSENSE is delivered in six phases. This README covers
-> what exists today and grows with each phase.
+> **Build status.** FLOWSENSE was delivered in six phases, all complete.
 >
 > | Phase | Scope | State |
 > |---|---|---|
@@ -16,7 +15,7 @@ PDF reports.
 > | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | ✅ done |
 > | 4 | Metrics module, dashboard, Erlang C, simulator | ✅ done |
 > | 5 | Pivot builder, PDF reports | ✅ done |
-> | 6 | Audit log screen, backups, full README | next |
+> | 6 | Audit log screen, backups, full README | ✅ done |
 
 ## Roles
 
@@ -70,9 +69,9 @@ Then edit `backend/.env`:
 | `JWT_SECRET` | Secret that signs login tokens. **At least 32 characters**; the server refuses to start with a shorter one or with the placeholder. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. |
 | `JWT_EXPIRES_IN` | How long a login lasts, e.g. `8h`, `30m`, `1d`. Also the cookie lifetime. |
 | `DB_PATH` | SQLite file. Relative paths are relative to `backend/`. Created on first start. |
-| `BACKUP_DIR` | Where database backups go. |
-| `BACKUP_INTERVAL_HOURS` | Hours between automatic backups. |
-| `BACKUP_RETENTION_COUNT` | Number of backup files kept. |
+| `BACKUP_DIR` | Folder for database backups (created if missing). Relative paths are relative to `backend/`. Put it on a different disk from `DB_PATH` if you can. |
+| `BACKUP_INTERVAL_HOURS` | Hours between automatic backups (one is also made at every start). |
+| `BACKUP_RETENTION_COUNT` | How many backup files to keep; older ones are deleted after each backup. |
 | `COOKIE_SECURE` | `true` when the site is served over HTTPS (adds `Secure` to cookies). Keep `false` for plain `http://localhost`. |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | See below. |
 
@@ -363,6 +362,79 @@ fix.
 API: `GET /api/pivot/options`, `POST /api/pivot` (a configuration),
 `POST /api/reports` (`{ scope, sections, title }`).
 
+## Backups and restore
+
+Backups are made with SQLite's online backup API (better-sqlite3
+`db.backup()`), not by copying the file, so they are consistent even while
+people are using the app. Each one is a complete, standalone SQLite file
+named `flowsense-YYYY-MM-DD-HHmm.db` (server local time) in `BACKUP_DIR`. A
+second backup in the same minute gets a `-2` suffix (then `-3`, and so on).
+
+**Manual backup.** As an admin, open **Backups** and click **Back up now**.
+The page lists the existing backups with their size and date.
+(API: `POST /api/admin/backups`, `GET /api/admin/backups`.)
+
+**Scheduled backups.** The server makes one backup when it starts, then one
+every `BACKUP_INTERVAL_HOURS`. Scheduled backups show as *System* in the
+audit log.
+
+**Retention.** After every backup, only the newest `BACKUP_RETENTION_COUNT`
+files matching the name pattern above are kept; older ones are deleted and
+their names are recorded in the `backup_created` audit entry (`pruned`).
+Other files in `BACKUP_DIR` are never touched.
+
+**Failures** (disk full, folder not writable…) are written to the server log
+and to the audit log as `backup_failed` with the reason. They never stop the
+server; a half-written file is removed.
+
+**Backups cannot be downloaded over HTTP**, on purpose: the database holds
+password hashes. To get a copy off the machine, copy files from `BACKUP_DIR`
+with your normal server tools.
+
+### Restoring a backup
+
+1. **Stop the server** (Ctrl+C, or stop the service). Restoring while it
+   runs will corrupt data.
+2. **Move the current database aside**, together with its WAL files.
+   SQLite runs in WAL mode, so next to `flowsense.db` there may be
+   `flowsense.db-wal` and `flowsense.db-shm`. Move all three; a stale
+   `-wal` file left next to the restored database would be replayed into
+   it.
+   ```sh
+   cd backend
+   mkdir -p data/replaced
+   mv data/flowsense.db data/flowsense.db-wal data/flowsense.db-shm data/replaced/ 2>/dev/null
+   ```
+3. **Copy the chosen backup to `DB_PATH`:**
+   ```sh
+   cp backups/flowsense-2026-10-12-0930.db data/flowsense.db
+   ```
+4. **Restart the server:** `node server.js`.
+5. **Verify** by logging in and opening Sessions or the Dashboard. Keep
+   `data/replaced/` until you are sure, then delete it.
+
+(The paths above use the defaults from `.env.example`; use your own
+`DB_PATH` and `BACKUP_DIR`. Windows: use `move` and `copy`, or File
+Explorer, with the server stopped.)
+
+## Audit log
+
+Admins can read the audit log under **Audit log**: newest first, 50 per
+page, filterable by action and by date range (inclusive, server local
+date). Each entry shows when, who (*System* for scheduled backups), the
+action, the target, and details (for checkpoint changes, the before and
+after values of each changed field).
+
+Recorded actions: `user_approved` (also used when a disabled user is
+re-enabled), `user_rejected`, `user_role_changed`, `user_disabled`,
+`import_committed`, `import_rolled_back`, `session_deleted`,
+`checkpoint_created`, `checkpoint_updated`, `backup_created`,
+`backup_failed`.
+
+Each entry is written **in the same database transaction** as the action it
+records: if one fails, neither is saved. The API has no way to change or
+delete entries (`GET /api/audit` and `GET /api/audit/actions` only).
+
 ## Security notes
 
 - **Login cookie.** The JWT lives in an `httpOnly`, `SameSite=Strict` cookie
@@ -406,9 +478,41 @@ API: `GET /api/pivot/options`, `POST /api/pivot` (a configuration),
   User text never reaches the SQL string. Filter values are bound
   parameters. Tests send injection strings as dimension and metric names
   and check for 400.
+- **Backups are not downloadable** over HTTP; the files stay on the server.
+- **The audit log is append-only** through the app: there are no update or
+  delete routes, and entries are written inside the action's transaction.
+- **Errors.** In production, error responses carry a message and a code,
+  never a stack trace; details go to the server log.
+- **Secrets.** `.env` is in `.gitignore`; only `.env.example` is committed.
 - **Reports are recomputed on the server.** The report request carries only
   configurations and a scope; any data the browser might send is rejected,
   and every number in the PDF comes from the database at generation time.
+
+## Known limitations and out of scope
+
+These are deliberately not part of FLOWSENSE v2:
+
+- **Real-time streaming.** Data arrives by manual entry or Excel import;
+  dashboards show it when you reload or change a filter.
+- **Mobile apps.** The web app works on phones and tablets, but there is no
+  native app and no offline mode.
+- **Multi-airport tenancy.** One installation serves one airport; there is
+  no tenant separation.
+- **Historical SLA versioning.** Changing a checkpoint's SLA threshold
+  re-evaluates all past data against the new value. The audit log keeps the
+  old value for reference.
+- **Email notifications.** Nobody is emailed (for example about pending
+  sign-ups); admins check the Users page.
+- **Downloadable backups over HTTP.** Copy backup files on the server.
+- **Single sign-on (SSO).** Accounts are local email and password.
+
+Other limits worth knowing:
+
+- SQLite suits one server process and a modest number of concurrent users;
+  run exactly one `node server.js` per database file.
+- The M/M/c model assumes random arrivals and exponential service times in
+  steady state; treat its numbers as guidance.
+- Pivots are capped at 1,000 cells and reports at 20 pivot sections.
 
 ## Project layout
 
@@ -425,6 +529,8 @@ backend/
     services/        business rules and transactions (audit writes included)
     repositories/    SQL only
     domain/          pure functions and constants
+    jobs/            the backup scheduler
+    pdf/             PDF layout, tables and charts
   test/              unit + integration tests
 frontend/            static single-page app (ES modules, no build step)
 ```

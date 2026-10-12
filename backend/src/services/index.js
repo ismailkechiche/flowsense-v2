@@ -10,6 +10,8 @@ const { createPreviewStore } = require('./previewStore');
 const { createAnalyticsService } = require('./analyticsService');
 const { createPivotService } = require('./pivotService');
 const { createReportService } = require('./reportService');
+const { createAuditService } = require('./auditService');
+const { createBackupService } = require('./backupService');
 
 function createServices(deps) {
   const sessions = createSessionService(deps);
@@ -23,6 +25,8 @@ function createServices(deps) {
     observations: createObservationService({ ...deps, sessionService: sessions }),
     analytics,
     pivot,
+    audit: createAuditService(deps),
+    backups: createBackupService(deps),
     reports: createReportService({ ...deps, services: { analytics, pivot } }),
     imports: createImportService({ ...deps, sessionService: sessions, previewStore: deps.previewStore ?? createPreviewStore() }),
   };

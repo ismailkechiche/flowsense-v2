@@ -6,6 +6,7 @@ const { loadConfig, ConfigError } = require('./src/config');
 const { createLogger } = require('./src/logger');
 const { openDatabase, runMigrations } = require('./src/db');
 const { createApp } = require('./src/app');
+const { startBackupScheduler } = require('./src/jobs/backupScheduler');
 
 async function main() {
   let config;
@@ -34,8 +35,16 @@ async function main() {
     logger.info(`FLOWSENSE listening on http://localhost:${config.port}`);
   });
 
+  // One backup now, then every BACKUP_INTERVAL_HOURS (never in tests).
+  const scheduler = config.nodeEnv === 'test' ? null : startBackupScheduler({
+    backups: app.locals.ctx.services.backups,
+    intervalHours: config.backupIntervalHours,
+    logger,
+  });
+
   const shutdown = (signal) => {
     logger.info(`${signal} received, shutting down`);
+    scheduler?.stop();
     server.close(() => {
       db.close();
       process.exit(0);

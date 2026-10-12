@@ -1,5 +1,9 @@
 'use strict';
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
 const bcrypt = require('bcrypt');
 const request = require('supertest');
 const { loadConfig } = require('../../src/config');
@@ -22,7 +26,8 @@ function testEnv(overrides = {}) {
     JWT_SECRET: 'test-secret-that-is-definitely-longer-than-32-chars',
     JWT_EXPIRES_IN: '8h',
     DB_PATH: ':memory:',
-    BACKUP_DIR: './backups-test',
+    // A fresh temp directory per test app, so tests never write into the repo.
+    BACKUP_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'flowsense-test-backups-')),
     BACKUP_INTERVAL_HOURS: '24',
     BACKUP_RETENTION_COUNT: '30',
     COOKIE_SECURE: 'false',
