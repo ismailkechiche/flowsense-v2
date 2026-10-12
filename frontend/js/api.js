@@ -30,15 +30,15 @@ export async function ensureCsrf() {
   if (!readCookie(CSRF_COOKIE)) await request('GET', '/auth/csrf');
 }
 
-async function request(method, path, body, { redirectOn401 = true } = {}) {
+async function request(method, path, body, { redirectOn401 = true, raw = false } = {}) {
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined) headers['Content-Type'] = raw ? 'application/octet-stream' : 'application/json';
   if (UNSAFE.has(method)) headers[CSRF_HEADER] = readCookie(CSRF_COOKIE) ?? '';
 
   let res;
   try {
     res = await fetch(`/api${path}`, {
-      method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body),
+      method, headers, credentials: 'same-origin', body: body === undefined || raw ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, { code: 'network_error', message: 'network' });
@@ -56,6 +56,8 @@ export const api = {
   patch: async (path, body = {}, opts) => { await ensureCsrf(); return request('PATCH', path, body, opts); },
   put: async (path, body = {}, opts) => { await ensureCsrf(); return request('PUT', path, body, opts); },
   delete: async (path, opts) => { await ensureCsrf(); return request('DELETE', path, undefined, opts); },
+  /** Sends a File/Blob as the raw request body. */
+  upload: async (path, file) => { await ensureCsrf(); return request('POST', path, file, { raw: true }); },
 };
 
 /** Builds a query string, skipping empty values. */

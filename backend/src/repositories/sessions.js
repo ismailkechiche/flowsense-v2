@@ -39,6 +39,10 @@ function createSessionsRepository(db) {
   const summaryById = db.prepare(`SELECT ${SUMMARY_SELECT} ${SUMMARY_FROM} WHERE s.id = ? GROUP BY s.id`);
   const setShift = db.prepare('UPDATE sessions SET shift = ? WHERE id = ?');
   const remove = db.prepare('DELETE FROM sessions WHERE id = ?');
+  const byCheckpointAndDate = db.prepare(`SELECT s.id, s.name, s.created_by, s.import_batch_id, COUNT(o.id) AS group_count
+    FROM sessions s LEFT JOIN observations o ON o.session_id = s.id
+    WHERE s.checkpoint_id = ? AND s.date = ? GROUP BY s.id ORDER BY s.id`);
+  const idsByImportBatch = db.prepare('SELECT id FROM sessions WHERE import_batch_id = ? ORDER BY id').pluck();
 
   return {
     insert(session) {
@@ -64,6 +68,8 @@ function createSessionsRepository(db) {
     },
     setShift: (id, shift) => setShift.run(shift, id),
     remove: (id) => remove.run(id),
+    listByCheckpointAndDate: (checkpointId, date) => byCheckpointAndDate.all(checkpointId, date),
+    idsByImportBatch: (batchId) => idsByImportBatch.all(batchId),
   };
 }
 

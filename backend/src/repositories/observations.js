@@ -19,6 +19,17 @@ function createObservationsRepository(db) {
   const maxGroupNumber = db.prepare(`SELECT MAX(CAST(substr(passenger_group_code, 2) AS INTEGER))
     FROM observations WHERE session_id = ? AND passenger_group_code GLOB 'G[0-9]*'`).pluck();
   const remove = db.prepare('DELETE FROM observations WHERE id = ?');
+  // Rows in a batch's own sessions that the batch did not create (added by
+  // hand or by a later import): an import rollback must list these first.
+  const addedToBatchSessions = db.prepare(`SELECT o.id, o.session_id, s.name AS session_name, o.passenger_group_code,
+      o.pax, o.arrival_time, o.import_batch_id
+    FROM observations o JOIN sessions s ON s.id = o.session_id
+    WHERE s.import_batch_id = @batch AND (o.import_batch_id IS NULL OR o.import_batch_id != @batch)
+    ORDER BY o.session_id, o.arrival_time, o.id`);
+  const countByBatch = db.prepare('SELECT COUNT(*) FROM observations WHERE import_batch_id = ?').pluck();
+  const foreignSessionsOfBatch = db.prepare(`SELECT DISTINCT o.session_id FROM observations o JOIN sessions s ON s.id = o.session_id
+    WHERE o.import_batch_id = @batch AND (s.import_batch_id IS NULL OR s.import_batch_id != @batch)`).pluck();
+  const deleteByBatch = db.prepare('DELETE FROM observations WHERE import_batch_id = ?');
 
   return {
     insert(observation) {
@@ -41,6 +52,10 @@ function createObservationsRepository(db) {
       db.prepare(`UPDATE observations SET ${keys.map((k) => `${k} = @${k}`).join(', ')} WHERE id = @id`).run({ ...fields, id });
     },
     remove: (id) => remove.run(id),
+    addedToBatchSessions: (batchId) => addedToBatchSessions.all({ batch: batchId }),
+    countByBatch: (batchId) => countByBatch.get(batchId),
+    foreignSessionsOfBatch: (batchId) => foreignSessionsOfBatch.all({ batch: batchId }),
+    deleteByBatch: (batchId) => deleteByBatch.run(batchId).changes,
   };
 }
 

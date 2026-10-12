@@ -13,8 +13,8 @@ PDF reports.
 > |---|---|---|
 > | 1 | Config, migrations, auth + approval, cookies + CSRF, RBAC, bootstrap admin, checkpoints | ✅ done |
 > | 2 | Sessions, observations, shift detection, row validation | ✅ done |
-> | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | next |
-> | 4 | Metrics module, dashboard, Erlang C, simulator | |
+> | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | ✅ done |
+> | 4 | Metrics module, dashboard, Erlang C, simulator | next |
 > | 5 | Pivot builder, PDF reports | |
 > | 6 | Audit log screen, backups, full README | |
 
@@ -148,6 +148,68 @@ Lists are paginated: `?page=1&page_size=25` (max 100), returning
 `{ items, page, page_size, total, total_pages }`. Sessions can be filtered by
 `checkpoint_id`, `from`, `to` (dates, inclusive) and `shift`, newest first.
 
+## Excel import
+
+**Import** (Collectors and Admins) takes an `.xlsx`, `.xls` or `.csv` file
+of up to 10 MB. Uploading only builds a **preview**: nothing is saved until
+you press *Import N rows into M session(s)*.
+
+**Expected sheet.** One row per passenger group, one header row. Column
+names don't need to be exact: they are matched ignoring case, accents and
+punctuation, against English and French synonyms (e.g. *Arrivée*, *Heure de
+prise en charge*, *Nb pax*), then by similarity (Jaro-Winkler ≥ 0.8). The
+preview shows each match with its confidence and lets you change any column.
+
+| Field | Required | Notes |
+|---|:-:|---|
+| Pax | ✅ | Whole number 1–6. |
+| Arrival time, Service start, Service end | ✅ | A time (`14:05`, `14h05`, an Excel time) or a full date and time. |
+| Date | | `DD/MM/YYYY` (also `.` or `-`), ISO `YYYY-MM-DD`, or an Excel date. Without a date column, the date is taken from the arrival cell. |
+| Checkpoint | | Matched to the configured checkpoints, with common French names (*Sûreté*, *PAF*, *Embarquement*…). Without the column, you pick one checkpoint for the whole file. Unknown names get a dropdown in the preview; rows left unmapped are skipped. |
+| Group code, Flight, Counter / lane, Observer | | Optional. Missing group codes become `G001`, `G002`, … per session. |
+
+If the workbook has several sheets, the first one with a header row is
+proposed and the preview has a sheet picker. The header row is the first
+row with at least three filled cells, so title rows above it are fine.
+Empty rows are ignored.
+
+**Midnight crossing.** When a cell holds only a time and it is earlier than
+the previous time on the same row, it is taken as the next day (arrival
+23:58, service start 00:03 is a 5-minute wait). The preview says how many
+rows this affected. Rows still go through every rule in *Sessions and
+observations*; failed rows are listed with their sheet row number and reason
+and are skipped.
+
+**Split into sessions.** Rows are grouped by **date and checkpoint
+together**, so one file with Security and Passport Control on the same day
+gives two sessions. Each group defaults to *Create new session* with an
+editable name. You may instead add a group to an existing session with the
+same checkpoint and date that you are allowed to edit, but this is never
+pre-selected: nothing from a previous import is remembered.
+
+**Commit** sends only the preview id and your choices; the server rebuilds
+the rows from the file it kept and writes the batch, sessions, observations
+and audit entry in **one transaction**, so a failure leaves nothing behind.
+Previews live in server memory for 30 minutes (5 per user); after a restart
+or expiry, upload the file again.
+
+**Duplicates.** Each file's SHA-256 is stored. Uploading a file that was
+already imported shows who imported it and when, and importing it again
+requires ticking *Import it again anyway*.
+
+**Rollback** (Admins, *Import history*) deletes exactly what the batch
+created: its observations, plus the sessions it created. Sessions it only
+added to keep their other rows. If someone added rows by hand to a session
+the import created, the rollback lists them and asks again before deleting
+them with the session.
+
+**SheetJS.** Files are parsed with SheetJS 0.20.3, installed from the
+official `cdn.sheetjs.com` tarball (see `backend/package.json`). The `xlsx`
+package on the npm registry is stuck at 0.18.5, which has known
+vulnerabilities, so don't replace the URL with `npm install xlsx`. If your
+network blocks `cdn.sheetjs.com`, `npm install` fails on that package: allow
+the host or download the tarball and install it from a local path.
+
 ## Security notes
 
 - **Login cookie.** The JWT lives in an `httpOnly`, `SameSite=Strict` cookie
@@ -173,6 +235,9 @@ Lists are paginated: `?page=1&page_size=25` (max 100), returning
   The UI gating is cosmetic; the backend 403 is the real protection.
 - **Passwords** are hashed with bcrypt (cost 12) and must be at least 10
   characters. Login and signup are rate-limited.
+- **Uploads** are capped at 10 MB, parsed in memory, never written to disk,
+  and the parser never evaluates formulas. The commit can't inject rows: the
+  browser sends only the preview id and choices.
 - **Headers.** Helmet sets a strict Content-Security-Policy
   (`script-src 'self'`), so the frontend loads no third-party scripts.
 

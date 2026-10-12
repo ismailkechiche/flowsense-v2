@@ -3,20 +3,13 @@
 const { badRequest, notFound, forbidden, conflict } = require('../domain/errors');
 const { AUDIT_ACTIONS } = require('../domain/auditActions');
 const { detectShift } = require('../domain/shifts');
-const { addDays } = require('../domain/timeParse');
+const { arrivalDateProblem } = require('../domain/rowValidation');
 const { pageWindow, pageResult } = require('../domain/pagination');
 
 /** Collectors may change only sessions they created; admins any session. */
 function assertCanEdit(actor, session) {
   if (actor.role === 'admin') return;
   if (session.created_by !== actor.id) throw forbidden('You can only change sessions you created', 'not_session_owner');
-}
-
-/** A session's observations must arrive on its date or, overnight, the next day. */
-function arrivalDateProblem(sessionDate, arrivalTime) {
-  const day = arrivalTime.slice(0, 10);
-  if (day === sessionDate || day === addDays(sessionDate, 1)) return null;
-  return `arrival date ${day} is not the session date ${sessionDate} (or the next day, for overnight sessions)`;
 }
 
 /** Adds the SLA verdict to a session summary row (threshold in force now). */

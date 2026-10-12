@@ -69,6 +69,86 @@ function secondsOfDay(canonical) {
   return h * 3600 + mi * 60 + s;
 }
 
+// ---------------------------------------------------------------------------
+// Spreadsheet cells. Dates and times may arrive as Excel serial numbers
+// (days since 1899-12-30, the epoch that absorbs Excel's 1900 leap-year
+// bug), as fractions of a day (time only), or as text.
+
+const EXCEL_EPOCH_SECONDS = toEpochSeconds('1899-12-30T00:00:00');
+const SECONDS_PER_DAY = 86_400;
+// Serials below this are not plausible observation dates (before 1950).
+const MIN_DATE_SERIAL = 18_264;
+
+/** Excel serial (days, may include a fraction) → canonical datetime. */
+function fromExcelSerial(serial) {
+  return fromEpochSeconds(EXCEL_EPOCH_SECONDS + Math.round(serial * SECONDS_PER_DAY));
+}
+
+/** Fraction of a day (0 ≤ f < 1) → 'HH:MM:SS'. */
+function fromDayFraction(fraction) {
+  const seconds = Math.min(Math.round(fraction * SECONDS_PER_DAY), SECONDS_PER_DAY - 1);
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+}
+
+const DMY = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/;
+const TIME_TEXT = /^(\d{1,2})\s*[:hH]\s*(\d{2})(?:\s*[:mM]\s*(\d{2}))?\s*(?:s|S)?$/;
+
+function parseTimeText(text) {
+  const m = TIME_TEXT.exec(text);
+  if (!m) return null;
+  const [h, mi, s] = [m[1], m[2], m[3] ?? '0'].map(Number);
+  if (h > 23 || mi > 59 || s > 59) return null;
+  return `${pad(h)}:${pad(mi)}:${pad(s)}`;
+}
+
+/**
+ * A date cell → 'YYYY-MM-DD' or null. Accepts Excel serials, ISO text
+ * (YYYY-MM-DD, optionally with a time) and day-first text
+ * (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY), the convention in FLOWSENSE sheets.
+ */
+function parseCellDate(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value >= MIN_DATE_SERIAL ? fromExcelSerial(value).slice(0, 10) : null;
+  }
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  const iso = parseLocalDate(text.slice(0, 10));
+  if (iso && (text.length === 10 || parseLocalDateTime(text))) return iso;
+  const m = DMY.exec(text);
+  if (!m) return null;
+  return parseLocalDate(`${m[3]}-${pad(Number(m[2]))}-${pad(Number(m[1]))}`);
+}
+
+/**
+ * A time cell → { date: 'YYYY-MM-DD' | null, time: 'HH:MM:SS' } or null.
+ * Accepts fractions of a day, full Excel serial datetimes, 'HH:MM[:SS]',
+ * French '14h05', and full datetime text (ISO or day-first).
+ */
+function parseCellTime(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value >= 0 && value < 1) return { date: null, time: fromDayFraction(value) };
+    if (value >= MIN_DATE_SERIAL) {
+      const full = fromExcelSerial(value);
+      return { date: full.slice(0, 10), time: full.slice(11) };
+    }
+    return null;
+  }
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  const timeOnly = parseTimeText(text);
+  if (timeOnly) return { date: null, time: timeOnly };
+  const isoFull = parseLocalDateTime(text);
+  if (isoFull) return { date: isoFull.slice(0, 10), time: isoFull.slice(11) };
+  const space = text.lastIndexOf(' ');
+  if (space > 0) {
+    const date = parseCellDate(text.slice(0, space));
+    const time = parseTimeText(text.slice(space + 1));
+    if (date && time) return { date, time };
+  }
+  return null;
+}
+
 module.exports = {
+  parseCellDate, parseCellTime, fromExcelSerial,
   parseLocalDateTime, parseLocalDate, toEpochSeconds, fromEpochSeconds, minutesBetween, addDays, secondsOfDay,
 };
