@@ -7,6 +7,7 @@ const { createSessionService } = require('./sessionService');
 const { createObservationService } = require('./observationService');
 const { createImportService } = require('./importService');
 const { createPreviewStore } = require('./previewStore');
+const { createAnalyticsService } = require('./analyticsService');
 
 function createServices(deps) {
   const sessions = createSessionService(deps);
@@ -16,6 +17,7 @@ function createServices(deps) {
     checkpoints: createCheckpointService(deps),
     sessions,
     observations: createObservationService({ ...deps, sessionService: sessions }),
+    analytics: createAnalyticsService(deps),
     imports: createImportService({ ...deps, sessionService: sessions, previewStore: deps.previewStore ?? createPreviewStore() }),
   };
 }

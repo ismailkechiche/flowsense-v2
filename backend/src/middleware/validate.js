@@ -80,6 +80,22 @@ const v = {
   id(opts = {}) {
     return v.int({ min: 1, ...opts });
   },
+  /**
+   * One or more ids, from a repeated query parameter (`?id=1&id=2`) or a
+   * comma-separated list (`?id=1,2`). Returns a de-duplicated array.
+   */
+  idList({ max = 50, ...opts } = {}) {
+    return makeRule((raw) => {
+      const parts = (Array.isArray(raw) ? raw : [raw]).flatMap((item) => (typeof item === 'string' ? item.split(',') : [item]));
+      const ids = parts.map((part) => {
+        const n = toNumber(typeof part === 'string' ? part.trim() : part);
+        if (!Number.isInteger(n) || n < 1) fail('must be one or more ids');
+        return n;
+      });
+      if (ids.length > max) fail(`must list at most ${max} ids`);
+      return [...new Set(ids)];
+    }, opts);
+  },
   /** Escape hatch for structured values: `check(raw)` returns the value or calls `fail`. */
   custom(check, opts = {}) {
     return makeRule(check, opts);

@@ -50,6 +50,16 @@ const MATRIX = [
   ['GET', '/api/imports', ['admin']],
   ['GET', '/api/imports/:id/rollback', ['admin']],
   ['POST', '/api/imports/:id/rollback', ['admin']],
+
+  // Collectors get 403 on every analytics route (spec §6, §14 phase 4).
+  ['GET', '/api/analytics/summary', ['analyst', 'admin']],
+  ['GET', '/api/analytics/bottlenecks', ['analyst', 'admin']],
+  ['GET', '/api/analytics/hourly', ['analyst', 'admin']],
+  ['GET', '/api/analytics/breakdown', ['analyst', 'admin']],
+  ['GET', '/api/analytics/distribution', ['analyst', 'admin']],
+  ['GET', '/api/analytics/trend', ['analyst', 'admin']],
+  ['GET', '/api/simulator/defaults', ['analyst', 'admin']],
+  ['GET', '/api/simulator/run', ['analyst', 'admin']],
 ];
 
 const key = (method, path) => `${method} ${path}`;
