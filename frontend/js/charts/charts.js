@@ -116,3 +116,23 @@ export function trendChart(canvas, items) {
     },
   });
 }
+
+const SERIES_COLORS = ['#1d5fa8', '#c56a00', '#2e7d32', '#6a1b9a', '#00838f', '#ad1457', '#5d4037', '#455a64'];
+
+/**
+ * Pivot chart. `labels` are the row values; `series` = [{ label, values }].
+ * Bar or line, one colour per series.
+ */
+export function pivotChart(canvas, type, labels, series) {
+  return mount(canvas, {
+    type,
+    data: {
+      labels,
+      datasets: series.map((s, i) => ({
+        label: s.label, data: s.values, backgroundColor: SERIES_COLORS[i % SERIES_COLORS.length],
+        borderColor: SERIES_COLORS[i % SERIES_COLORS.length], spanGaps: false,
+      })),
+    },
+    options: { scales: { y: { beginAtZero: true } } },
+  });
+}

@@ -7,6 +7,7 @@ const { createSessionsRepository } = require('./sessions');
 const { createObservationsRepository } = require('./observations');
 const { createImportBatchesRepository } = require('./importBatches');
 const { createAnalyticsRepository } = require('./analytics');
+const { createPivotRepository } = require('./pivot');
 
 function createRepositories(db) {
   return {
@@ -17,6 +18,7 @@ function createRepositories(db) {
     observations: createObservationsRepository(db),
     importBatches: createImportBatchesRepository(db),
     analytics: createAnalyticsRepository(db),
+    pivot: createPivotRepository(db),
   };
 }
 

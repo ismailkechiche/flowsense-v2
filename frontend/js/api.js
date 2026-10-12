@@ -30,8 +30,8 @@ export async function ensureCsrf() {
   if (!readCookie(CSRF_COOKIE)) await request('GET', '/auth/csrf');
 }
 
-async function request(method, path, body, { redirectOn401 = true, raw = false } = {}) {
-  const headers = { Accept: 'application/json' };
+async function request(method, path, body, { redirectOn401 = true, raw = false, binary = false } = {}) {
+  const headers = { Accept: binary ? 'application/pdf, application/json' : 'application/json' };
   if (body !== undefined) headers['Content-Type'] = raw ? 'application/octet-stream' : 'application/json';
   if (UNSAFE.has(method)) headers[CSRF_HEADER] = readCookie(CSRF_COOKIE) ?? '';
 
@@ -44,6 +44,18 @@ async function request(method, path, body, { redirectOn401 = true, raw = false }
     throw new ApiError(0, { code: 'network_error', message: 'network' });
   }
 
+  if (binary && res.ok) {
+    // A file download: the body is the file, the name comes from the
+    // Content-Disposition header. A broken stream rejects here.
+    let blob;
+    try {
+      blob = await res.blob();
+    } catch {
+      throw new ApiError(0, { code: 'network_error', message: 'network' });
+    }
+    const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'download';
+    return { blob, filename };
+  }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (res.status === 401 && redirectOn401) onUnauthorized();
   if (!res.ok) throw new ApiError(res.status, data?.error);
@@ -58,6 +70,8 @@ export const api = {
   delete: async (path, opts) => { await ensureCsrf(); return request('DELETE', path, undefined, opts); },
   /** Sends a File/Blob as the raw request body. */
   upload: async (path, file) => { await ensureCsrf(); return request('POST', path, file, { raw: true }); },
+  /** POSTs JSON and returns the response as `{ blob, filename }` (file downloads). */
+  download: async (path, body = {}) => { await ensureCsrf(); return request('POST', path, body, { binary: true }); },
 };
 
 /** Builds a query string, skipping empty values. */

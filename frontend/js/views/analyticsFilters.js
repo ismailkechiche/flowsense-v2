@@ -36,6 +36,15 @@ export async function analyticsFilters({ onApply, submitLabel = t('dash.apply') 
   }
   for (const input of [...boxes, from.input, to.input]) input.addEventListener('change', loadSessions);
 
+  /** Back to the default empty state: no checkpoint, no dates, all sessions. */
+  function reset() {
+    for (const box of boxes) box.checked = false;
+    from.input.value = '';
+    to.input.value = '';
+    session.input.value = '';
+    loadSessions();
+  }
+
   function values() {
     return { checkpoint_id: selectedCheckpoints(), from: from.input.value, to: to.input.value, session_id: session.input.value };
   }
@@ -43,7 +52,7 @@ export async function analyticsFilters({ onApply, submitLabel = t('dash.apply') 
   const form = h('form', { class: 'card row', onsubmit: (event) => { event.preventDefault(); onApply(values()); } },
     checks, from.wrapper, to.wrapper, session.wrapper, h('button', { type: 'submit' }, submitLabel));
   loadSessions();
-  return { form, values, checkpoints };
+  return { form, values, reset, checkpoints };
 }
 
 /** Number with `digits` decimals, or an em dash for null. */
