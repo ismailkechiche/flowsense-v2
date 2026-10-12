@@ -16,6 +16,7 @@ import { importView } from './views/import.js';
 import { importHistoryView } from './views/importHistory.js';
 import { dashboardView } from './views/dashboard.js';
 import { simulatorView } from './views/simulator.js';
+import { pivotView } from './views/pivot.js';
 import { notAuthorizedView, notFoundView } from './views/notAuthorized.js';
 
 const ALL_ROLES = ['collector', 'analyst', 'admin'];
@@ -30,6 +31,7 @@ defineRoute('/sessions/new', { view: sessionNewView, roles: ['collector', 'admin
 defineRoute('/sessions/:id', { view: sessionDetailView, roles: ALL_ROLES });
 defineRoute('/dashboard', { view: dashboardView, roles: ['analyst', 'admin'] });
 defineRoute('/simulator', { view: simulatorView, roles: ['analyst', 'admin'] });
+defineRoute('/pivot', { view: pivotView, roles: ['analyst', 'admin'] });
 defineRoute('/users', { view: usersView, roles: ['admin'] });
 defineRoute('/import', { view: importView, roles: ['collector', 'admin'] });
 defineRoute('/imports', { view: importHistoryView, roles: ['admin'] });

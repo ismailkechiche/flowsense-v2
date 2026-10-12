@@ -87,6 +87,8 @@ function createAnalyticsService({ repos }) {
         group_count: cp.group_count,
         avg_wait_minutes: cp.avg_wait_minutes,
         sla_compliance_pct: cp.sla_compliance_pct,
+        breach_pax: cp.breach_pax,
+        breach_groups: cp.breach_groups,
         lambda: r.lambda,
         mu: r.mu,
         c: r.c,

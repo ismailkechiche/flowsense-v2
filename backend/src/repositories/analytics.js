@@ -155,5 +155,5 @@ function createAnalyticsRepository(db) {
 }
 
 module.exports = {
-  createAnalyticsRepository, filterClause, BREAKDOWN_COLUMNS, HISTOGRAM_BIN_MINUTES, HISTOGRAM_LAST_BIN,
+  createAnalyticsRepository, filterClause, FROM, minutesBetween, BREAKDOWN_COLUMNS, HISTOGRAM_BIN_MINUTES, HISTOGRAM_LAST_BIN,
 };
