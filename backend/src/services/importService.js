@@ -40,6 +40,10 @@ function createImportService({ db, repos, sessionService, previewStore }) {
         mapping[field] = auto[field];
       }
     }
+    // A checkpoint picked for the file beats an automatic column guess; a
+    // column the user mapped themselves beats the picked checkpoint.
+    const checkpointColumnChosen = Boolean(choices.mapping && 'checkpoint' in choices.mapping);
+    if (choices.file_checkpoint_id != null && !checkpointColumnChosen) mapping.checkpoint = null;
     const used = new Map();
     for (const [field, m] of Object.entries(mapping)) {
       if (!m) continue;

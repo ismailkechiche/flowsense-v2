@@ -164,7 +164,7 @@ preview shows each match with its confidence and lets you change any column.
 | Pax | ✅ | Whole number 1–6. |
 | Arrival time, Service start, Service end | ✅ | A time (`14:05`, `14h05`, an Excel time) or a full date and time. |
 | Date | | `DD/MM/YYYY` (also `.` or `-`), ISO `YYYY-MM-DD`, or an Excel date. Without a date column, the date is taken from the arrival cell. |
-| Checkpoint | | Matched to the configured checkpoints, with common French names (*Sûreté*, *PAF*, *Embarquement*…). Without the column, you pick one checkpoint for the whole file. Unknown names get a dropdown in the preview; rows left unmapped are skipped. |
+| Checkpoint | | Matched to the configured checkpoints, with common French names (*Sûreté*, *PAF*, *Embarquement*…). Most sheets have no such column: pick the checkpoint for the file at the top of the preview, and it applies to every row (it also replaces a guessed checkpoint column). Columns of computed durations (*processing time*, *waiting time*, *total time*) are never mapped automatically. Unknown names get a dropdown in the preview; rows left unmapped are skipped. |
 | Group code, Flight, Counter / lane, Observer | | Optional. Missing group codes become `G001`, `G002`, … per session. |
 
 If the workbook has several sheets, the first one with a header row is

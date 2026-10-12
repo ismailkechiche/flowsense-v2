@@ -5,12 +5,25 @@
  *   1. normalise (lowercase, strip accents/punctuation/extra spaces);
  *   2. exact hit in a per-field synonym list (English and French);
  *   3. otherwise Jaro-Winkler similarity against the field's synonyms,
- *      accepted at or above a threshold (default 0.8).
+ *      or a synonym found as whole words inside a longer header (scored by
+ *      how much of the header it covers), accepted at or above a threshold
+ *      (default 0.8; stricter for the checkpoint field).
+ * Columns holding derived durations ("processing time", "waiting time",
+ * "total time") are never guessed: FLOWSENSE computes those itself.
  * Each header maps to at most one field and vice versa; the best scores
  * are assigned first.
  */
 
 const DEFAULT_THRESHOLD = 0.8;
+
+/**
+ * A wrong checkpoint guess hides the "checkpoint for the whole file" picker
+ * and rejects every row, so only near-certain fuzzy matches count.
+ */
+const FIELD_THRESHOLDS = Object.freeze({ checkpoint: 0.95 });
+
+/** Words that mark a computed duration column; such headers only map on an exact synonym. */
+const DERIVED_WORDS = Object.freeze(['processing', 'waiting', 'wait', 'total', 'duration', 'duree', 'attente', 'temps', 'elapsed']);
 
 const TARGET_FIELDS = Object.freeze([
   'date', 'checkpoint', 'passenger_group_code', 'pax', 'flight_no', 'counter',
@@ -34,8 +47,13 @@ const SYNONYMS = Object.freeze({
   counter: ['counter', 'desk', 'lane', 'counter no', 'desk no', 'booth', 'gate', 'server',
     'comptoir', 'guichet', 'file', 'poste de travail', 'n comptoir', 'banque', 'aubette'],
   arrival_time: ['arrival', 'arrival time', 'time of arrival', 'arrival hour', 'queue entry', 'entry time', 'arrived',
-    'arrivee', 'heure arrivee', 'heure d arrivee', 'heure de arrivee', 'entree file', 'heure entree'],
+    'arrival time the queue', 'arrival time to the queue', 'arrival in queue', 'queue arrival', 'arrival at the queue',
+    'arrivee', 'arrivee file', 'arrivee dans la file', 'heure arrivee', 'heure d arrivee', 'heure de arrivee', 'entree file', 'heure entree'],
   service_start: ['service start', 'start service', 'service begin', 'start', 'start time', 'begin service', 'served at', 'svc start', 'svc begin',
+    // Reaching the desk is when service starts.
+    'arrival time to the check in', 'arrival to the check in', 'arrival at check in', 'arrival time to the counter',
+    'arrival at the counter', 'arrival at counter', 'arrival at desk', 'counter arrival', 'arrival at the desk',
+    'arrivee au comptoir', 'arrivee comptoir', 'arrivee guichet', 'arrivee au guichet',
     'debut service', 'debut du service', 'heure debut', 'debut traitement', 'prise en charge', 'heure de prise en charge'],
   service_end: ['service end', 'end service', 'end', 'end time', 'service finish', 'finish', 'completed', 'departure', 'svc end',
     'fin service', 'fin du service', 'heure fin', 'fin traitement', 'sortie', 'heure de sortie'],
@@ -92,6 +110,15 @@ function jaroWinkler(a, b) {
   return j + prefix * 0.1 * (1 - j);
 }
 
+const isDerived = (normalized) => normalized.split(' ').some((word) => DERIVED_WORDS.includes(word));
+
+/** Score for a synonym found as whole words inside a longer header, by the share of the header it covers. */
+function containedScore(normalized, synonym) {
+  if (synonym.length < 3 || normalized === synonym) return 0;
+  if (!` ${normalized} `.includes(` ${synonym} `)) return 0;
+  return 0.8 + 0.15 * (synonym.length / normalized.length);
+}
+
 const NORMALIZED_SYNONYMS = Object.fromEntries(
   Object.entries(SYNONYMS).map(([field, list]) => [field, [...new Set([normalizeHeader(field), ...list.map(normalizeHeader)])]]),
 );
@@ -100,8 +127,13 @@ const NORMALIZED_SYNONYMS = Object.fromEntries(
 function scoreHeader(normalized, field) {
   if (normalized === '') return { score: 0, method: null };
   if (NORMALIZED_SYNONYMS[field].includes(normalized)) return { score: 1, method: 'synonym' };
+  if (isDerived(normalized)) return { score: 0, method: null };
   let best = 0;
-  for (const synonym of NORMALIZED_SYNONYMS[field]) best = Math.max(best, jaroWinkler(normalized, synonym));
+  for (const synonym of NORMALIZED_SYNONYMS[field]) {
+    best = Math.max(best, jaroWinkler(normalized, synonym));
+    // Generic one-word checkpoint names ("point", "area") inside a header prove nothing.
+    if (field !== 'checkpoint') best = Math.max(best, containedScore(normalized, synonym));
+  }
   return { score: best, method: 'similarity' };
 }
 
@@ -116,7 +148,7 @@ function matchHeaders(headers, { threshold = DEFAULT_THRESHOLD } = {}) {
     const normalized = normalizeHeader(header);
     for (const field of TARGET_FIELDS) {
       const { score, method } = scoreHeader(normalized, field);
-      if (score >= threshold) candidates.push({ field, index, header: String(header), confidence: Number(score.toFixed(3)), method, specificity: normalized.length });
+      if (score >= Math.max(threshold, FIELD_THRESHOLDS[field] ?? 0)) candidates.push({ field, index, header: String(header), confidence: Number(score.toFixed(3)), method, specificity: normalized.length });
     }
   });
   // Highest confidence first; on ties prefer the more specific (longer)
@@ -138,5 +170,5 @@ function matchHeaders(headers, { threshold = DEFAULT_THRESHOLD } = {}) {
 }
 
 module.exports = {
-  TARGET_FIELDS, REQUIRED_FIELDS, SYNONYMS, DEFAULT_THRESHOLD, normalizeHeader, jaroWinkler, matchHeaders,
+  TARGET_FIELDS, REQUIRED_FIELDS, SYNONYMS, DEFAULT_THRESHOLD, FIELD_THRESHOLDS, normalizeHeader, jaroWinkler, matchHeaders,
 };
