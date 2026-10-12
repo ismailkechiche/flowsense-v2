@@ -36,3 +36,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
 .field button { margin-top: 0.25rem; align-self: flex-start; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+.stack-tight > * + * { margin-top: 0.35rem; }
+label.inline { display: block; margin-top: 0.5rem; font-weight: 600; }
+details > summary { cursor: pointer; font-weight: 600; }

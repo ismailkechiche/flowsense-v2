@@ -5,6 +5,7 @@ const { createCheckpointsRepository } = require('./checkpoints');
 const { createAuditRepository } = require('./audit');
 const { createSessionsRepository } = require('./sessions');
 const { createObservationsRepository } = require('./observations');
+const { createImportBatchesRepository } = require('./importBatches');
 
 function createRepositories(db) {
   return {
@@ -13,6 +14,7 @@ function createRepositories(db) {
     audit: createAuditRepository(db),
     sessions: createSessionsRepository(db),
     observations: createObservationsRepository(db),
+    importBatches: createImportBatchesRepository(db),
   };
 }
 

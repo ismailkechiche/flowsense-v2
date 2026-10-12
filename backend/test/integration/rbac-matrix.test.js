@@ -43,6 +43,13 @@ const MATRIX = [
   ['POST', '/api/sessions/:id/observations', ['collector', 'admin']],
   ['PATCH', '/api/observations/:id', ['collector', 'admin']],
   ['DELETE', '/api/observations/:id', ['collector', 'admin']],
+
+  ['POST', '/api/imports/preview', ['collector', 'admin']],
+  ['POST', '/api/imports/previews/:previewId', ['collector', 'admin']],
+  ['POST', '/api/imports/previews/:previewId/commit', ['collector', 'admin']],
+  ['GET', '/api/imports', ['admin']],
+  ['GET', '/api/imports/:id/rollback', ['admin']],
+  ['POST', '/api/imports/:id/rollback', ['admin']],
 ];
 
 const key = (method, path) => `${method} ${path}`;
@@ -84,7 +91,7 @@ describe('RBAC matrix', () => {
       else expectation = 403;
 
       test(`${method} ${path} as ${who} → ${expectation}`, async () => {
-        const url = path.replace(':id', '999999');
+        const url = path.replace(':id', '999999').replace(':previewId', 'no-such-preview');
         const res = await t.as(users[who])[method.toLowerCase()](url).send({});
         if (expectation === 'not 401/403') {
           assert.ok(![401, 403].includes(res.status), `got ${res.status}: ${JSON.stringify(res.body)}`);

@@ -1,11 +1,20 @@
 'use strict';
 
-const { parseLocalDateTime, minutesBetween } = require('./timeParse');
+const { parseLocalDateTime, minutesBetween, addDays } = require('./timeParse');
 
 const MIN_PAX = 1;
 const MAX_PAX = 6;
 const MAX_TOTAL_MINUTES = 6 * 60;
 const TIMESTAMP_FIELDS = Object.freeze(['arrival_time', 'service_start', 'service_end']);
+
+/** Normalises pax; returns { pax, problem } where problem is a reason or null. */
+function checkPax(raw) {
+  const pax = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw;
+  if (!Number.isInteger(pax) || pax < MIN_PAX || pax > MAX_PAX) {
+    return { pax, problem: { field: 'pax', message: `pax must be a whole number from ${MIN_PAX} to ${MAX_PAX}` } };
+  }
+  return { pax, problem: null };
+}
 
 /**
  * Validates one observation (manual entry or import, spec §5.2) and
@@ -19,10 +28,8 @@ const TIMESTAMP_FIELDS = Object.freeze(['arrival_time', 'service_start', 'servic
  */
 function validateObservationRow(row) {
   const reasons = [];
-  const pax = typeof row.pax === 'string' && row.pax.trim() !== '' ? Number(row.pax) : row.pax;
-  if (!Number.isInteger(pax) || pax < MIN_PAX || pax > MAX_PAX) {
-    reasons.push({ field: 'pax', message: `pax must be a whole number from ${MIN_PAX} to ${MAX_PAX}` });
-  }
+  const { pax, problem } = checkPax(row.pax);
+  if (problem) reasons.push(problem);
 
   const times = {};
   for (const field of TIMESTAMP_FIELDS) {
@@ -65,10 +72,20 @@ function validateObservationRow(row) {
   };
 }
 
+/**
+ * A session's observations must arrive on its date or, for overnight
+ * sessions, the next day. Returns a reason string or null.
+ */
+function arrivalDateProblem(sessionDate, arrivalTime) {
+  const day = arrivalTime.slice(0, 10);
+  if (day === sessionDate || day === addDays(sessionDate, 1)) return null;
+  return `arrival date ${day} is not the session date ${sessionDate} (or the next day, for overnight sessions)`;
+}
+
 function formatMinutes(minutes) {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes - h * 60);
   return `${h}h${String(m).padStart(2, '0')}`;
 }
 
-module.exports = { validateObservationRow, MIN_PAX, MAX_PAX, MAX_TOTAL_MINUTES };
+module.exports = { validateObservationRow, arrivalDateProblem, checkPax, MIN_PAX, MAX_PAX, MAX_TOTAL_MINUTES };

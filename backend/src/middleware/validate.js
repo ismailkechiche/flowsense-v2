@@ -80,6 +80,10 @@ const v = {
   id(opts = {}) {
     return v.int({ min: 1, ...opts });
   },
+  /** Escape hatch for structured values: `check(raw)` returns the value or calls `fail`. */
+  custom(check, opts = {}) {
+    return makeRule(check, opts);
+  },
   /** A calendar date 'YYYY-MM-DD'. */
   date(opts = {}) {
     return makeRule((raw) => {
@@ -140,6 +144,11 @@ function validate(schema = {}) {
     for (const location of ['params', 'query', 'body']) {
       const rules = schema[location] || {};
       const input = req[location];
+      if (location === 'body' && Buffer.isBuffer(input)) {
+        // Raw uploads (express.raw) are checked by the service, not here.
+        if (Object.keys(rules).length > 0) details.push({ location, field: null, message: 'must be a JSON object' });
+        continue;
+      }
       if (location === 'body') {
         if (input !== undefined && (typeof input !== 'object' || Array.isArray(input))) {
           details.push({ location, field: null, message: 'must be a JSON object' });
@@ -157,4 +166,4 @@ function validate(schema = {}) {
   };
 }
 
-module.exports = { validate, v, pagination };
+module.exports = { validate, v, pagination, fail };

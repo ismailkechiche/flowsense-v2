@@ -23,7 +23,7 @@ function errorHandler({ config, logger }) {
       body = { code: 'invalid_json', message: 'The request body is not valid JSON' };
     } else if (err?.type === 'entity.too.large') {
       status = 413;
-      body = { code: 'payload_too_large', message: 'The request body is too large' };
+      body = { code: 'payload_too_large', message: 'The upload is too large (the limit is 10 MB for files, 1 MB for other requests)' };
     } else if (err?.status && err.status >= 400 && err.status < 500) {
       status = err.status;
       body = { code: 'bad_request', message: err.expose ? err.message : 'Bad request' };
