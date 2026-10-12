@@ -76,8 +76,10 @@ export async function importView(main) {
         previewHolder.append(h('div', { class: 'row' }, sheet.wrapper));
       }
 
+      // Most sheets hold one checkpoint and have no checkpoint column, so the
+      // picker always comes first.
+      previewHolder.append(fileCheckpointPicker(p));
       previewHolder.append(mappingTable(p));
-      if (!p.mapping.checkpoint) previewHolder.append(fileCheckpointPicker(p));
       if (p.unknown_checkpoint_values.length > 0) previewHolder.append(unknownValues(p));
       if (p.midnight_crossings > 0) previewHolder.append(h('p', { class: 'muted' }, t('import.midnight', { rule: p.midnight_rule, count: p.midnight_crossings })));
       else previewHolder.append(h('p', { class: 'muted' }, p.midnight_rule));
@@ -100,6 +102,7 @@ export async function importView(main) {
               p.headers.filter((col) => col.header).map((col) => option(col.index, col.header, m && m.index === col.index)));
             select.addEventListener('change', () => {
               choices.mapping[f] = select.value === '' ? null : Number(select.value);
+              if (f === 'checkpoint' && select.value !== '') delete choices.file_checkpoint_id;
               refresh();
             });
             return h('tr', {},
@@ -111,15 +114,24 @@ export async function importView(main) {
     }
 
     function fileCheckpointPicker(p) {
-      const picker = field(t('import.fileCheckpoint'), 'select', {}, [
-        option('', t('import.chooseCheckpoint'), !p.file_checkpoint_id),
-        ...checkpoints.map((c) => option(c.id, c.name, c.id === p.file_checkpoint_id)),
+      const column = p.mapping.checkpoint;
+      const picker = field(t('import.fileCheckpoint'), 'select', { required: true }, [
+        column
+          ? option('', t('import.checkpointFromColumn', { column: column.header }), true)
+          : option('', t('import.chooseCheckpoint'), !p.file_checkpoint_id),
+        ...checkpoints.map((c) => option(c.id, c.name, !column && c.id === p.file_checkpoint_id)),
       ]);
       picker.input.addEventListener('change', () => {
-        choices.file_checkpoint_id = picker.input.value === '' ? null : Number(picker.input.value);
+        if (picker.input.value === '') {
+          delete choices.file_checkpoint_id;
+        } else {
+          // One checkpoint for every row: stop reading it from a column.
+          choices.file_checkpoint_id = Number(picker.input.value);
+          choices.mapping.checkpoint = null;
+        }
         refresh();
       });
-      return h('div', { class: 'card' }, picker.wrapper);
+      return h('div', { class: 'card stack' }, picker.wrapper, h('p', { class: 'muted' }, t('import.fileCheckpointHelp')));
     }
 
     function unknownValues(p) {

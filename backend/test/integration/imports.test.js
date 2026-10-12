@@ -74,6 +74,52 @@ describe('preview', () => {
     assert.deepEqual(refreshed.groups.map((g) => [g.date, g.checkpoint_name, g.row_count]), [['2026-05-03', 'Passport Control', 3]]);
   });
 
+  test('one-checkpoint sheet without a checkpoint column: the user picks it, rows go to that checkpoint', async () => {
+    const { t, collector, upload, commit } = setup();
+    const csv = [
+      'Dep Date,Flight N,Chek-in counter,Number of pax,Arrival time the queue,Arrival time to the chek-in,End of the service,processing time,waiting time',
+      '01/06/2026,TU 2141,15,3,09:15:00,09:19:10,09:19:47,0.62,4.17',
+      '01/06/2026,TU 2141,3,1,08:56:00,09:00:49,09:01:30,0.68,4.82',
+    ].join('\n');
+    const res = await upload(collector, 'checkin.csv', Buffer.from(csv));
+    const p = res.body.preview;
+    const mapped = Object.fromEntries(Object.entries(p.mapping).map(([f, m]) => [f, m && m.header]));
+    assert.deepEqual(mapped, {
+      date: 'Dep Date', checkpoint: null, passenger_group_code: null, pax: 'Number of pax', flight_no: 'Flight N',
+      counter: 'Chek-in counter', arrival_time: 'Arrival time the queue', service_start: 'Arrival time to the chek-in',
+      service_end: 'End of the service', observer: null,
+    });
+    assert.equal(p.can_commit, false);
+    assert.match(p.blocking_reasons.join(), /choose the checkpoint/);
+
+    const picked = (await t.as(collector).post(`/api/imports/previews/${p.preview_id}`).send({ file_checkpoint_id: 1 })).body.preview;
+    assert.equal(picked.file_checkpoint_id, 1);
+    assert.equal(picked.can_commit, true);
+    assert.deepEqual(picked.groups.map((g) => [g.date, g.checkpoint_name, g.row_count, g.pax_total]), [['2026-06-01', 'Check-in', 2, 4]]);
+
+    const done = await commit(collector, p.preview_id, { file_checkpoint_id: 1 });
+    assert.equal(done.status, 201, JSON.stringify(done.body));
+    const rows = t.db.prepare('SELECT s.checkpoint_id, o.counter, o.flight_no FROM observations o JOIN sessions s ON s.id = o.session_id ORDER BY o.id').all();
+    assert.deepEqual(rows, [{ checkpoint_id: 1, counter: '15', flight_no: 'TU 2141' }, { checkpoint_id: 1, counter: '3', flight_no: 'TU 2141' }]);
+  });
+
+  test('a picked file checkpoint replaces a guessed checkpoint column, but not one the user mapped', async () => {
+    const { t, collector, upload } = setup();
+    const csv = ['Date,Zone,Pax,Arrival,Service start,Service end', '01/05/2026,Hall B,2,08:00,08:04,08:06'].join('\n');
+    const p = (await upload(collector, 'zone.csv', Buffer.from(csv))).body.preview;
+    assert.equal(p.mapping.checkpoint.header, 'Zone');
+    assert.deepEqual(p.unknown_checkpoint_values, ['Hall B']);
+
+    const picked = (await t.as(collector).post(`/api/imports/previews/${p.preview_id}`).send({ file_checkpoint_id: 2 })).body.preview;
+    assert.equal(picked.mapping.checkpoint, null);
+    assert.deepEqual(picked.groups.map((g) => g.checkpoint_name), ['Security']);
+
+    const column = (await t.as(collector).post(`/api/imports/previews/${p.preview_id}`).send({ file_checkpoint_id: 2, mapping: { checkpoint: 1 } })).body.preview;
+    assert.equal(column.mapping.checkpoint.header, 'Zone');
+    assert.equal(column.file_checkpoint_id, null);
+    assert.equal(column.accepted_count, 0);
+  });
+
   test('midnight crossings are counted and resolved', async () => {
     const { collector, preview } = setup();
     const p = await preview(collector, 'midnight-crossing.xlsx');

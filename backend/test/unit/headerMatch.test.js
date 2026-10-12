@@ -47,6 +47,36 @@ test('a column maps to one field at most; the more specific header wins a tie', 
   assert.ok(fieldsUsingStart.every((m) => m.confidence < 1), 'a fuzzy guess must show a confidence below 1');
 });
 
+test('a one-checkpoint check-in sheet maps every column and guesses no checkpoint', () => {
+  assert.deepEqual(mapped(['Dep Date', 'Flight N', 'Chek-in counter', 'Number of pax', 'Arrival time the queue',
+    'Arrival time to the chek-in', 'End of the service', 'processing time', 'waiting time', 'total time']), {
+    date: 'Dep Date', flight_no: 'Flight N', counter: 'Chek-in counter', pax: 'Number of pax',
+    arrival_time: 'Arrival time the queue', service_start: 'Arrival time to the chek-in', service_end: 'End of the service',
+  });
+});
+
+test('computed duration columns are never guessed', () => {
+  const { mapping, unmatched } = matchHeaders(['Processing time', 'Waiting time', 'Total time', 'Temps d\'attente', 'Durée']);
+  assert.ok(Object.values(mapping).every((m) => m === null));
+  assert.equal(unmatched.length, 5);
+});
+
+test('checkpoint is only guessed from a near-certain header', () => {
+  assert.equal(matchHeaders(['Process']).mapping.checkpoint.header, 'Process');
+  assert.equal(matchHeaders(['Check point']).mapping.checkpoint.header, 'Check point');
+  assert.equal(matchHeaders(['Chekpoint']).mapping.checkpoint.header, 'Chekpoint');
+  for (const header of ['Processing', 'Chek-in counter', 'Arrival area time', 'Pointage']) {
+    assert.equal(matchHeaders([header]).mapping.checkpoint, null, header);
+  }
+});
+
+test('a synonym inside a longer header counts, the longest one wins', () => {
+  assert.equal(matchHeaders(['Check-in counter']).mapping.counter.header, 'Check-in counter');
+  const { mapping } = matchHeaders(['Heure d\'arrivée dans la file']);
+  assert.equal(mapping.arrival_time.header, 'Heure d\'arrivée dans la file');
+  assert.equal(mapping.counter, null);
+});
+
 test('jaroWinkler sanity', () => {
   assert.equal(jaroWinkler('abc', 'abc'), 1);
   assert.equal(jaroWinkler('abc', 'xyz'), 0);
