@@ -1,0 +1,87 @@
+'use strict';
+
+const { test, describe, before } = require('node:test');
+const assert = require('node:assert/strict');
+const { createTestApp, listApiRoutes } = require('../helpers/testApp');
+
+const ALL = ['collector', 'analyst', 'admin'];
+const PUBLIC = 'public';
+
+/**
+ * Expected access for every API route. Adding a route without adding it
+ * here fails the coverage test below, so this table is the single place
+ * where the access policy (spec §6) is written down and checked.
+ * `:id` is replaced with an id that does not exist, so allowed requests
+ * get past the guard without changing data.
+ */
+const MATRIX = [
+  ['GET', '/api/auth/csrf', PUBLIC],
+  ['POST', '/api/auth/signup', PUBLIC],
+  ['POST', '/api/auth/login', PUBLIC],
+  ['POST', '/api/auth/logout', PUBLIC],
+  ['GET', '/api/auth/me', ALL],
+  ['POST', '/api/auth/password', ALL],
+
+  ['GET', '/api/users', ['admin']],
+  ['POST', '/api/users/:id/approve', ['admin']],
+  ['POST', '/api/users/:id/reject', ['admin']],
+  ['PATCH', '/api/users/:id/role', ['admin']],
+  ['POST', '/api/users/:id/disable', ['admin']],
+  ['POST', '/api/users/:id/enable', ['admin']],
+
+  ['GET', '/api/checkpoints', ALL],
+  ['GET', '/api/checkpoints/:id', ALL],
+  ['POST', '/api/checkpoints', ['admin']],
+  ['PATCH', '/api/checkpoints/:id', ['admin']],
+];
+
+const key = (method, path) => `${method} ${path}`;
+
+describe('RBAC matrix', () => {
+  let t;
+  let users;
+  before(() => {
+    t = createTestApp();
+    users = { anonymous: null, collector: t.createUser({ role: 'collector' }), analyst: t.createUser({ role: 'analyst' }), admin: t.createUser({ role: 'admin' }) };
+  });
+
+  test('every registered API route carries exactly one access guard (default-deny)', () => {
+    const unguarded = listApiRoutes(t.app).filter((r) => r.guards.length !== 1);
+    assert.deepEqual(unguarded.map((r) => key(r.method, r.path)), []);
+  });
+
+  test('the matrix lists every registered route and nothing else', () => {
+    const registered = listApiRoutes(t.app).map((r) => key(r.method, r.path)).sort();
+    const expected = MATRIX.map(([m, p]) => key(m, p)).sort();
+    assert.deepEqual(registered, expected);
+  });
+
+  test('each route guard declares the access the matrix expects', () => {
+    const byKey = new Map(listApiRoutes(t.app).map((r) => [key(r.method, r.path), r.guards[0]]));
+    for (const [method, path, access] of MATRIX) {
+      const declared = byKey.get(key(method, path));
+      if (access === PUBLIC) assert.equal(declared, PUBLIC, key(method, path));
+      else assert.deepEqual([...declared].sort(), [...access].sort(), key(method, path));
+    }
+  });
+
+  for (const [method, path, access] of MATRIX) {
+    for (const who of ['anonymous', ...ALL]) {
+      let expectation;
+      if (access === PUBLIC) expectation = 'not 401/403';
+      else if (who === 'anonymous') expectation = 401;
+      else if (access.includes(who)) expectation = 'not 401/403';
+      else expectation = 403;
+
+      test(`${method} ${path} as ${who} → ${expectation}`, async () => {
+        const url = path.replace(':id', '999999');
+        const res = await t.as(users[who])[method.toLowerCase()](url).send({});
+        if (expectation === 'not 401/403') {
+          assert.ok(![401, 403].includes(res.status), `got ${res.status}: ${JSON.stringify(res.body)}`);
+        } else {
+          assert.equal(res.status, expectation, JSON.stringify(res.body));
+        }
+      });
+    }
+  }
+});
