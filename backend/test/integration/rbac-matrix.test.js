@@ -63,6 +63,11 @@ const MATRIX = [
   ['GET', '/api/pivot/options', ['analyst', 'admin']],
   ['POST', '/api/pivot', ['analyst', 'admin']],
   ['POST', '/api/reports', ['analyst', 'admin']],
+
+  ['GET', '/api/admin/backups', ['admin']],
+  ['POST', '/api/admin/backups', ['admin']],
+  ['GET', '/api/audit', ['admin']],
+  ['GET', '/api/audit/actions', ['admin']],
 ];
 
 const key = (method, path) => `${method} ${path}`;
