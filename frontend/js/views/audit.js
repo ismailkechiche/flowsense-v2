@@ -1,7 +1,7 @@
 import { h, field, option, message, clear, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText, formatLocal, pageHeader } from './common.js';
+import { errorText, formatLocal, card } from './common.js';
 import { pager } from './pager.js';
 
 const PAGE_SIZE = 50;
@@ -40,7 +40,8 @@ export function targetText(entry) {
   return entry.target_name ? `${ref} · ${entry.target_name}` : ref;
 }
 
-export async function auditView(main) {
+/** The audit log, shown as a tab of the Admin page. */
+export async function auditPanel(container) {
   const feedback = h('div', { 'aria-live': 'polite' });
   const holder = h('div', { class: 'stack' }, loading(t('app.loading')));
   const action = field(t('audit.action'), 'select', {}, [option('', t('common.all'))]);
@@ -86,9 +87,8 @@ export async function auditView(main) {
   }
   for (const f of [action, from, to]) f.input.addEventListener('change', () => load());
 
-  main.append(h('section', { class: 'stack' },
-    pageHeader(t('audit.title'), { subtitle: t('audit.help') }),
-    h('div', { class: 'card row' }, action.wrapper, from.wrapper, to.wrapper),
+  container.append(card({ title: t('audit.title'), subtitle: t('audit.help'), icon: 'audit', tone: 'violet' },
+    h('div', { class: 'row toolbar' }, action.wrapper, from.wrapper, to.wrapper),
     feedback, holder));
   await load();
 }

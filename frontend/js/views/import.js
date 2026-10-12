@@ -1,7 +1,7 @@
 import { h, field, option, message, clear, icon, iconChip } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
-import { errorText, pageHeader } from './common.js';
+import { errorText, pageHeader, cardHeader } from './common.js';
 
 const FIELDS = ['date', 'checkpoint', 'passenger_group_code', 'pax', 'flight_no', 'counter', 'arrival_time', 'service_start', 'service_end', 'observer'];
 
@@ -91,7 +91,7 @@ export async function importView(main) {
     }
 
     function mappingTable(p) {
-      return h('section', { class: 'card stack' }, h('h2', {}, t('import.mapping')),
+      return h('section', { class: 'card stack' }, cardHeader({ title: t('import.mapping'), subtitle: t('import.mappingHint'), icon: 'table', tone: 'teal' }),
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('import.field'), t('import.column'), t('import.confidence')].map((l) => h('th', { scope: 'col' }, l)))),
           h('tbody', {}, FIELDS.map((f) => {
@@ -135,7 +135,7 @@ export async function importView(main) {
     }
 
     function unknownValues(p) {
-      return h('section', { class: 'card stack' }, h('h2', {}, t('import.unknownValues')), h('p', { class: 'muted' }, t('import.unknownHelp')),
+      return h('section', { class: 'card stack' }, cardHeader({ title: t('import.unknownValues'), subtitle: t('import.unknownHelp'), icon: 'alert', tone: 'amber' }),
         p.unknown_checkpoint_values.map((value) => {
           const f = field(value, 'select', {}, [option('', t('import.skipRows'), true), ...checkpoints.map((c) => option(c.id, c.name))]);
           f.input.addEventListener('change', () => {
@@ -148,7 +148,7 @@ export async function importView(main) {
     }
 
     function groupsTable(p, targetControls) {
-      return h('section', { class: 'card stack' }, h('h2', {}, t('import.sessions')), h('p', { class: 'muted' }, t('import.sessionsHelp')),
+      return h('section', { class: 'card stack' }, cardHeader({ title: t('import.sessions'), subtitle: t('import.sessionsHelp'), icon: 'sessions', tone: 'violet' }),
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('sessions.checkpoint'), t('sessions.date'), t('sessions.shift'), t('import.rows'), t('sessions.pax'), t('import.target')]
             .map((l) => h('th', { scope: 'col' }, l)))),

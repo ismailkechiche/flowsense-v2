@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { api, query } from '../api.js';
 import { getUser } from '../auth.js';
 import { navigate } from '../router.js';
-import { errorText, formatMinutes, formatLocal, nowLocal, pageHeader } from './common.js';
+import { errorText, formatMinutes, formatLocal, nowLocal, pageHeader, cardHeader } from './common.js';
 import { pager } from './pager.js';
 import { slaBadge } from './sessions.js';
 
@@ -102,7 +102,7 @@ function observationForm(session, initial, onDone) {
       submit.disabled = false;
     }
   } },
-  h('div', { class: 'card-header' }, h('h2', {}, isEdit ? `${t('obs.edit')} ${initial.passenger_group_code}` : t('obs.add'))),
+  cardHeader({ title: isEdit ? `${t('obs.edit')} ${initial.passenger_group_code}` : t('obs.add'), subtitle: t('obs.formHint'), icon: isEdit ? 'clock' : 'plus', tone: 'teal' }),
   h('div', { class: 'form-grid' }, pax.wrapper, group.wrapper, flight.wrapper, counter.wrapper),
   h('div', { class: 'form-grid' }, date.wrapper, arrival.wrapper, start.wrapper, end.wrapper),
   h('p', { class: 'muted' }, t('obs.midnightHint')),
@@ -133,7 +133,7 @@ function sessionEditForm(session, checkpoints, onSaved, onCancel) {
     } catch (err) {
       message(feedback, 'error', errorText(err), err.details);
     }
-  } }, h('h2', {}, t('sessions.edit')), h('div', { class: 'form-grid' }, name.wrapper, date.wrapper, checkpoint.wrapper, observer.wrapper),
+  } }, cardHeader({ title: t('sessions.edit'), icon: 'sessions', tone: 'teal' }), h('div', { class: 'form-grid' }, name.wrapper, date.wrapper, checkpoint.wrapper, observer.wrapper),
   notes.wrapper, feedback,
   h('div', { class: 'actions' }, h('button', { type: 'submit' }, t('common.save')), h('button', { type: 'button', class: 'secondary', onclick: onCancel }, t('common.cancel'))));
 }
@@ -204,8 +204,7 @@ export async function sessionDetailView(main, { id }) {
     currentPage = page;
     const result = await api.get(`/sessions/${session.id}/observations${query({ page })}`);
     clear(obsHolder);
-    obsHolder.append(h('div', { class: 'card-header' }, h('h2', {}, t('obs.title')),
-      result.total > 0 ? h('span', { class: 'muted' }, t('obs.count', { count: result.total })) : null));
+    obsHolder.append(cardHeader({ title: t('obs.title'), subtitle: result.total > 0 ? t('obs.count', { count: result.total }) : null, icon: 'sessions' }));
     if (result.total === 0) {
       obsHolder.append(emptyState(t('obs.none'), editable ? t('obs.noneHint') : null, null, 'clock'));
       return;

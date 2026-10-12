@@ -2,7 +2,7 @@ import { h, field, option, message } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { navigate } from '../router.js';
-import { errorText, nowLocal, pageHeader } from './common.js';
+import { errorText, nowLocal, pageHeader, cardHeader } from './common.js';
 
 export async function sessionNewView(main) {
   const { items } = await api.get('/checkpoints');
@@ -45,7 +45,8 @@ export async function sessionNewView(main) {
       message(feedback, 'error', errorText(err), err.details);
       submit.disabled = false;
     }
-  } }, h('div', { class: 'form-grid' }, checkpoint.wrapper, date.wrapper), name.wrapper, observer.wrapper, notes.wrapper, feedback, actions);
+  } }, cardHeader({ title: t('sessions.details'), subtitle: t('sessions.detailsHint'), icon: 'sessions', tone: 'teal' }),
+  h('div', { class: 'form-grid' }, checkpoint.wrapper, date.wrapper), name.wrapper, observer.wrapper, notes.wrapper, feedback, actions);
 
   main.append(h('section', { class: 'stack narrow' },
     pageHeader(t('sessions.new'), { subtitle: t('sessions.newSubtitle'), back: { href: '#/sessions', label: t('sessions.back') } }),

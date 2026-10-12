@@ -1,10 +1,21 @@
-import { h, field, option, message, clear, emptyState, icon } from '../dom.js';
+import { h, field, option, message, clear, emptyState, icon, iconChip } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText, pageHeader } from './common.js';
+import { errorText, pageHeader, card } from './common.js';
 import { analyticsFilters, fmt, fmtPct } from './analyticsFilters.js';
 import { chartBox, destroyCharts, pivotChart } from '../charts/charts.js';
 import { createReportDraft, generateAndReset } from '../reportDraft.js';
+
+const DEFAULT_VIZ = 'bar';
+const VIZ_ICONS = { table: 'table', bar: 'bar', line: 'line' };
+/** One-click starting points for common questions. */
+const PRESETS = [
+  { key: 'waitByCheckpoint', rows: 'checkpoint', metrics: ['avg_wait', 'avg_processing'], visualization: 'bar' },
+  { key: 'paxByHour', rows: 'hour', metrics: ['pax_total'], visualization: 'bar' },
+  { key: 'waitByHourCheckpoint', rows: 'hour', columns: 'checkpoint', metrics: ['avg_wait'], visualization: 'line' },
+  { key: 'dailyTrend', rows: 'date', metrics: ['avg_wait', 'sla_compliance'], visualization: 'line' },
+  { key: 'flights', rows: 'flight_no', metrics: ['pax_total', 'avg_wait', 'sla_compliance'], visualization: 'table' },
+];
 
 /** Display text for a dimension value. */
 function dimensionText(key, value) {
@@ -49,15 +60,15 @@ export async function pivotView(main) {
   const metricBoxes = options.metrics.map((m) => h('input', { type: 'checkbox', value: m.key, name: 'metric' }));
   const metricSet = h('fieldset', { class: 'checks' }, h('legend', {}, t('pivot.metrics')),
     options.metrics.map((m, i) => h('label', {}, metricBoxes[i], ` ${t(`pivot.metric.${m.key}`)}`)));
-  const vizInputs = options.visualizations.map((v) => h('input', { type: 'radio', name: 'viz', value: v, checked: v === 'table' }));
-  const vizSet = h('fieldset', { class: 'checks' }, h('legend', {}, t('pivot.visualization')),
-    options.visualizations.map((v, i) => h('label', {}, vizInputs[i], ` ${t(`pivot.viz.${v}`)}`)));
+  const vizInputs = options.visualizations.map((v) => h('input', { type: 'radio', name: 'viz', value: v, checked: v === DEFAULT_VIZ }));
+  const vizSet = h('fieldset', { class: 'checks segmented' }, h('legend', {}, t('pivot.visualization')),
+    options.visualizations.map((v, i) => h('label', {}, vizInputs[i], icon(VIZ_ICONS[v] ?? 'table'), t(`pivot.viz.${v}`))));
   const lineHint = h('span', { class: 'muted' });
   const title = field(t('pivot.title'), 'input', { maxlength: 120, autocomplete: 'off' });
 
   const ordered = (key) => options.dimensions.find((d) => d.key === key)?.ordered ?? false;
   const selectedMetrics = () => metricBoxes.filter((b) => b.checked).map((b) => b.value);
-  const visualization = () => vizInputs.find((r) => r.checked)?.value ?? 'table';
+  const visualization = () => vizInputs.find((r) => r.checked)?.value ?? DEFAULT_VIZ;
 
   /** Line needs an ordered row dimension (date or hour). */
   function syncLineAvailability() {
@@ -65,7 +76,7 @@ export async function pivotView(main) {
     const allowed = ordered(rows.input.value);
     line.disabled = !allowed;
     lineHint.textContent = allowed ? '' : t('pivot.lineHint');
-    if (!allowed && line.checked) vizInputs.find((r) => r.value === 'table').checked = true;
+    if (!allowed && line.checked) vizInputs.find((r) => r.value === DEFAULT_VIZ).checked = true;
   }
 
   // ---- Running a pivot --------------------------------------------------
@@ -107,18 +118,24 @@ export async function pivotView(main) {
     renderDraft();
   }
 
-  function seriesFor(result) {
+  /**
+   * Chart data: without columns, one chart with a series per metric; with
+   * columns, one chart per metric with a series per column value.
+   */
+  function chartsFor(result) {
     const c = result.config;
     const lookup = new Map(result.cells.map((cell) => [JSON.stringify([cell.row, cell.column]), cell]));
     const at = (r, col) => lookup.get(JSON.stringify([r, col]));
     if (c.columns) {
-      const metric = result.metrics[0];
-      return result.column_values.map((col) => ({
-        label: `${dimensionText(c.columns, col)} · ${t(`pivot.metric.${metric.key}`)}`,
-        values: result.row_values.map((r) => at(r, col)?.values[metric.key] ?? null),
+      return result.metrics.map((metric) => ({
+        title: result.metrics.length > 1 ? t(`pivot.metric.${metric.key}`) : null,
+        series: result.column_values.map((col) => ({
+          label: dimensionText(c.columns, col),
+          values: result.row_values.map((r) => at(r, col)?.values[metric.key] ?? null),
+        })),
       }));
     }
-    return result.metrics.map((m) => ({ label: t(`pivot.metric.${m.key}`), values: result.row_values.map((r) => at(r, null)?.values[m.key] ?? null) }));
+    return [{ title: null, series: result.metrics.map((m) => ({ label: t(`pivot.metric.${m.key}`), values: result.row_values.map((r) => at(r, null)?.values[m.key] ?? null) })) }];
   }
 
   function resultTable(result) {
@@ -146,7 +163,7 @@ export async function pivotView(main) {
     clear(resultHolder);
     const result = lastResult;
     if (!result) return;
-    resultHolder.append(h('h2', {}, result.config.title));
+    resultHolder.append(h('h3', { class: 'result-title' }, result.config.title));
     if (result.cells.length === 0) {
       resultHolder.append(emptyState(t('dash.noData'), t('dash.noDataHint')));
       return;
@@ -155,11 +172,14 @@ export async function pivotView(main) {
     if (viz === 'table') {
       resultHolder.append(resultTable(result));
     } else {
-      const { box, canvas } = chartBox(result.config.title);
-      resultHolder.append(box);
-      if (result.config.columns && result.metrics.length > 1) resultHolder.append(h('p', { class: 'muted' }, t('pivot.chartFirstMetric')));
-      pivotChart(canvas, viz, result.row_values.map((r) => dimensionText(result.config.rows, r)), seriesFor(result));
-      resultHolder.append(h('details', {}, h('summary', {}, t('dash.showTable')), resultTable(result)));
+      // A chart view shows only the chart(s): the table is its own choice.
+      const labels = result.row_values.map((r) => dimensionText(result.config.rows, r));
+      for (const chart of chartsFor(result)) {
+        const { box, canvas } = chartBox(chart.title ? `${result.config.title} · ${chart.title}` : result.config.title);
+        if (chart.title) resultHolder.append(h('h3', {}, chart.title));
+        resultHolder.append(box);
+        pivotChart(canvas, viz, labels, chart.series);
+      }
     }
     resultHolder.append(h('p', { class: 'muted' }, t('pivot.cells', { count: result.cell_count, max: result.max_cells })));
   }
@@ -221,7 +241,7 @@ export async function pivotView(main) {
     rows.input.value = '';
     columns.input.value = '';
     for (const b of metricBoxes) b.checked = false;
-    for (const r of vizInputs) r.checked = r.value === 'table';
+    for (const r of vizInputs) r.checked = r.value === DEFAULT_VIZ;
     title.input.value = '';
     filters.reset();
     reportTitle.input.value = '';
@@ -266,7 +286,7 @@ export async function pivotView(main) {
   });
 
   // ---- Assemble ---------------------------------------------------------
-  filters = await analyticsFilters({ onApply: run, submitLabel: t('pivot.run') });
+  filters = await analyticsFilters({ onApply: run });
   const scopeCheckpointBoxes = filters.checkpoints.map((c) => h('input', { type: 'checkbox', value: c.id }));
   rangeFields.replaceChildren(scopeFrom.wrapper, scopeTo.wrapper,
     h('fieldset', { class: 'checks' }, h('legend', {}, t('dash.checkpoints')), filters.checkpoints.map((c, i) => h('label', {}, scopeCheckpointBoxes[i], ` ${c.name}`))));
@@ -280,20 +300,35 @@ export async function pivotView(main) {
   title.input.addEventListener('change', () => { if (lastResult) run(); });
   syncLineAvailability();
 
+  /** Quick starts fill the builder with a common view in one click. */
+  function applyPreset(preset) {
+    rows.input.value = preset.rows;
+    columns.input.value = preset.columns ?? '';
+    for (const b of metricBoxes) b.checked = preset.metrics.includes(b.value);
+    syncLineAvailability();
+    for (const r of vizInputs) r.checked = r.value === preset.visualization;
+    title.input.value = '';
+    run();
+  }
+  const presets = h('div', { class: 'presets' }, h('span', { class: 'muted' }, t('pivot.quickStart')),
+    PRESETS.filter((p) => [p.rows, p.columns].filter(Boolean).every((key) => options.dimensions.some((d) => d.key === key)))
+      .map((p) => h('button', { type: 'button', class: 'chip-button', onclick: () => applyPreset(p) }, icon(VIZ_ICONS[p.visualization]), t(`pivot.preset.${p.key}`))));
+
   main.append(h('section', { class: 'stack' },
     pageHeader(t('pivot.heading'), { subtitle: t('pivot.subtitle') }),
-    h('div', { class: 'card stack' },
-      h('div', { class: 'card-header' }, h('h2', {}, t('pivot.build'))),
+    card({ title: t('pivot.build'), subtitle: t('pivot.buildHelp'), icon: 'pivot', tone: 'amber' },
+      presets,
       h('div', { class: 'form-grid' }, rows.wrapper, columns.wrapper, title.wrapper),
-      metricSet, h('div', { class: 'row' }, vizSet, lineHint)),
+      metricSet,
+      h('div', { class: 'row' }, vizSet, lineHint)),
     filters.form,
     feedback,
-    h('section', { class: 'card stack' }, resultHolder, h('div', { class: 'row' }, addButton)),
+    card({ title: t('pivot.result'), icon: 'bar', actions: addButton, className: 'chart-card' }, resultHolder),
     h('section', { class: 'card stack', 'aria-labelledby': 'report-draft-heading' },
-      Object.assign(draftHeading, { id: 'report-draft-heading' }),
-      h('p', { class: 'muted' }, t('report.help')),
+      h('div', { class: 'card-header' }, h('div', { class: 'card-title' }, iconChip('sessions', 'violet'),
+        h('div', {}, Object.assign(draftHeading, { id: 'report-draft-heading' }), h('p', { class: 'card-subtitle' }, t('report.help'))))),
       draftList,
-      reportTitle.wrapper,
+      h('div', { class: 'form-grid' }, reportTitle.wrapper),
       h('fieldset', { class: 'checks' }, h('legend', {}, t('report.scope')),
         h('label', {}, scopeRange, ` ${t('report.scopeRange')}`), h('label', {}, scopeSession, ` ${t('report.scopeSession')}`)),
       rangeFields, sessionFields,

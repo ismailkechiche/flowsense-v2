@@ -1,7 +1,7 @@
 import { h, message, clear, toast, emptyState, loading, icon } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
-import { errorText, pageHeader } from './common.js';
+import { errorText, card } from './common.js';
 
 /** Bytes as a short human-readable size. */
 export function formatSize(bytes) {
@@ -13,9 +13,10 @@ export function formatSize(bytes) {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
 }
 
-export async function backupsView(main) {
+/** Database backups, shown as a tab of the Admin page. */
+export async function backupsPanel(container) {
   const feedback = h('div', { 'aria-live': 'polite' });
-  const info = h('p', { class: 'subtitle' });
+  const info = h('p', { class: 'muted' });
   const holder = h('div', {}, loading(t('app.loading')));
   const button = h('button', { type: 'button', onclick: backUp }, t('backups.now'));
 
@@ -55,8 +56,8 @@ export async function backupsView(main) {
     }
   }
 
-  main.append(h('section', { class: 'stack' },
-    pageHeader(t('backups.title'), { subtitle: info, actions: button }),
+  container.append(card({ title: t('backups.title'), subtitle: t('backups.subtitle'), icon: 'backups', tone: 'amber', actions: button },
+    info,
     h('p', { class: 'message info' }, t('backups.notDownloadable')),
     feedback, holder));
   await load();

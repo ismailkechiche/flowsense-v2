@@ -15,6 +15,7 @@ function palette() {
   const css = (name) => style.getPropertyValue(name).trim();
   return {
     primary: css('--chart-1'), secondary: css('--chart-2'), sla: css('--chart-sla'), grid: css('--chart-grid'), text: css('--chart-text'),
+    danger: css('--chart-danger'), ok: css('--chart-ok'), neutral: css('--chart-neutral'),
     series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => css(`--series-${i}`)),
   };
 }
@@ -23,13 +24,25 @@ function toneColor(tone, p) {
   return typeof tone === 'number' ? p.series[tone % p.series.length] : p[tone];
 }
 
-function paint(chart, p = palette()) {
-  for (const dataset of chart.data.datasets) {
+function paintDatasets(datasets, p) {
+  for (const dataset of datasets) {
+    // `tones` colours each bar on its own (e.g. red when above the SLA).
+    if (Array.isArray(dataset.tones)) {
+      const colors = dataset.tones.map((tone) => toneColor(tone, p));
+      dataset.borderColor = colors;
+      dataset.backgroundColor = colors;
+      continue;
+    }
     if (dataset.tone === undefined) continue;
     const color = toneColor(dataset.tone, p);
     dataset.borderColor = color;
     dataset.backgroundColor = color;
+    if (dataset.type === 'line' || dataset.pointRadius !== undefined) dataset.pointBackgroundColor = color;
   }
+}
+
+function paint(chart, p = palette()) {
+  paintDatasets(chart.data.datasets, p);
   for (const scale of Object.values(chart.options.scales ?? {})) {
     scale.grid = { ...scale.grid, color: p.grid };
     scale.border = { ...scale.border, color: p.grid };
@@ -48,7 +61,7 @@ export function restyleCharts() {
   window.Chart.defaults.borderColor = p.grid;
   for (const chart of live) {
     paint(chart, p);
-    chart.update('none');
+    chart.update();
   }
 }
 
@@ -64,6 +77,9 @@ function mount(canvas, config) {
   window.Chart.defaults.color = p.text;
   window.Chart.defaults.borderColor = p.grid;
   window.Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue('--font').trim() || 'system-ui, sans-serif';
+  // Colours go on before the chart exists: Chart.js caches resolved
+  // element styles, so painting only afterwards can leave default grey.
+  paintDatasets(config.data.datasets, p);
   const chart = new window.Chart(canvas, {
     ...config,
     options: {
@@ -80,7 +96,7 @@ function mount(canvas, config) {
     },
   });
   paint(chart, p);
-  chart.update('none');
+  chart.update();
   live.add(chart);
   return chart;
 }
@@ -196,5 +212,79 @@ export function pivotChart(canvas, type, labels, series) {
       })),
     },
     options: { scales: { y: { beginAtZero: true } } },
+  });
+}
+
+/** A dashed horizontal reference line at `value` on the y axis (e.g. the SLA). */
+function referenceLinePlugin(value, label) {
+  return {
+    id: 'referenceLine',
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      const y = scales.y.getPixelForValue(value);
+      if (!Number.isFinite(y) || y < chartArea.top || y > chartArea.bottom) return;
+      const { sla } = palette();
+      ctx.save();
+      ctx.strokeStyle = sla;
+      ctx.fillStyle = sla;
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(label, chartArea.right - 4, y - 6);
+      ctx.restore();
+    },
+  };
+}
+
+/**
+ * General bar chart. `datasets` = [{ label, data, tone | tones, type? }]
+ * (a dataset with type 'line' is drawn over the bars). `horizontal` lays
+ * the bars sideways, which suits long labels such as flight numbers.
+ * `reference` = { value, label } draws a dashed line across the chart.
+ */
+export function barChart(canvas, { labels, datasets, horizontal = false, valueTitle, valueMax, legend = true, reference, valueSuffix = '' }) {
+  const valueAxis = horizontal ? 'x' : 'y';
+  const categoryAxis = horizontal ? 'y' : 'x';
+  return mount(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: datasets.map((d) => (d.type === 'line'
+        ? { tension: 0.3, pointRadius: 3, borderWidth: 2.5, order: 0, ...d }
+        : { borderRadius: 5, maxBarThickness: horizontal ? 22 : 46, order: 1, ...d })),
+    },
+    options: {
+      indexAxis: horizontal ? 'y' : 'x',
+      interaction: { mode: 'index', intersect: false, axis: horizontal ? 'y' : 'x' },
+      scales: {
+        [valueAxis]: {
+          beginAtZero: true,
+          ...(valueMax !== undefined ? { max: valueMax } : {}),
+          ...(valueTitle ? { title: { display: true, text: valueTitle } } : {}),
+          ...(valueSuffix ? { ticks: { callback: (v) => `${v}${valueSuffix}` } } : {}),
+        },
+        [categoryAxis]: { grid: { display: false } },
+      },
+      plugins: { legend: { display: legend, labels: { usePointStyle: true, boxHeight: 8, padding: 16 } } },
+    },
+    plugins: reference ? [referenceLinePlugin(reference.value, reference.label)] : [],
+  });
+}
+
+/** General line chart over ordered labels (dates, hours). */
+export function lineChart(canvas, { labels, datasets, valueTitle, valueMax }) {
+  return mount(canvas, {
+    type: 'line',
+    data: { labels, datasets: datasets.map((d) => ({ tension: 0.3, pointRadius: 3, borderWidth: 2.5, ...d })) },
+    options: {
+      scales: {
+        y: { beginAtZero: true, ...(valueMax !== undefined ? { max: valueMax } : {}), ...(valueTitle ? { title: { display: true, text: valueTitle } } : {}) },
+      },
+    },
   });
 }

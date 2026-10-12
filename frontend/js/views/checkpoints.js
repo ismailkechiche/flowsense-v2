@@ -2,7 +2,7 @@ import { h, field, message, clear, toast, icon } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { hasRole } from '../auth.js';
-import { errorText, pageHeader } from './common.js';
+import { errorText, pageHeader, cardHeader } from './common.js';
 
 function checkpointForm(initial, submitLabel, onSubmit, onCancel) {
   const name = field(t('checkpoints.name'), 'input', { required: true, maxlength: 80, value: initial.name ?? '' });
@@ -75,7 +75,7 @@ export async function checkpointsView(main) {
       closeEditor();
       await load();
     }, closeEditor);
-    form.prepend(h('h2', {}, `${t('checkpoints.edit')}: ${cp.name}`));
+    form.prepend(cardHeader({ title: `${t('checkpoints.edit')}: ${cp.name}`, subtitle: t('checkpoints.formHint'), icon: 'checkpoints', tone: 'teal' }));
     editorHolder.append(form);
     editorHolder.querySelector('input').focus();
   }
@@ -88,7 +88,7 @@ export async function checkpointsView(main) {
       closeEditor();
       await load();
     }, closeEditor);
-    form.prepend(h('h2', {}, t('checkpoints.add')));
+    form.prepend(cardHeader({ title: t('checkpoints.add'), subtitle: t('checkpoints.formHint'), icon: 'plus', tone: 'teal' }));
     editorHolder.append(form);
     editorHolder.querySelector('input').focus();
   }
