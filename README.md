@@ -14,8 +14,8 @@ PDF reports.
 > | 1 | Config, migrations, auth + approval, cookies + CSRF, RBAC, bootstrap admin, checkpoints | ✅ done |
 > | 2 | Sessions, observations, shift detection, row validation | ✅ done |
 > | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | ✅ done |
-> | 4 | Metrics module, dashboard, Erlang C, simulator | next |
-> | 5 | Pivot builder, PDF reports | |
+> | 4 | Metrics module, dashboard, Erlang C, simulator | ✅ done |
+> | 5 | Pivot builder, PDF reports | next |
 > | 6 | Audit log screen, backups, full README | |
 
 ## Roles
@@ -210,6 +210,107 @@ vulnerabilities, so don't replace the URL with `npm install xlsx`. If your
 network blocks `cdn.sheetjs.com`, `npm install` fails on that package: allow
 the host or download the tarball and install it from a local path.
 
+## The pax-weighting rule
+
+Every KPI in FLOWSENSE is **passenger-weighted**, never a plain row average.
+A row is a *group*, so a family of six that waited 30 minutes must count six
+times:
+
+```
+pax_weighted_avg(metric) = SUM(metric × pax) / SUM(pax)
+```
+
+**Worked example.** Three groups at Security:
+
+| Group | Pax | Wait |
+|---|--:|--:|
+| Family | 6 | 30 min |
+| Solo traveller | 1 | 0 min |
+| Solo traveller | 1 | 0 min |
+
+- Row average: (30 + 0 + 0) / 3 = **10 min**. Looks fine against a 10-minute SLA.
+- Pax-weighted: (30×6 + 0×1 + 0×1) / 8 = **22.5 min**. Six of the eight
+  passengers waited half an hour, which is what the dashboard shows.
+
+The formula is written **once**, in `backend/src/domain/metrics.js`, as a
+SQL fragment builder (`paxWeightedAvgSql`) and as a JS function
+(`paxWeightedAvg`). The same file holds the pax-weighted percentile, SLA
+compliance, breach counts and the rate formulas. **Any new KPI must be
+built from these helpers**; tests compare every analytics endpoint against
+the JS functions on a fixture where row and pax-weighted averages differ.
+
+## KPI definitions
+
+All times are local airport time; no time-zone conversion happens anywhere.
+
+| KPI | Definition |
+|---|---|
+| Waiting time (row) | service start − arrival, minutes |
+| Processing time (row) | service end − service start, minutes |
+| Total time (row) | service end − arrival, minutes |
+| Avg wait / processing / total | pax-weighted average of the row values |
+| Throughput | SUM(pax) / observed hours. Each session's window is its last service end − its first arrival; over several sessions the windows are **added up**, so nights and gaps between sessions don't count as observed time. |
+| SLA compliance % | SUM(pax with wait ≤ SLA) / SUM(pax) × 100 |
+| SLA breach | a row whose wait is **above** its checkpoint's `sla_wait_minutes`; counted in passengers and in groups |
+| P50 / P90 wait | pax-weighted percentiles, "lower nearest rank": the smallest wait w such that passengers waiting ≤ w are at least 50 % / 90 % of all passengers |
+| λ (arrival rate) | SUM(pax) / arrival window in minutes (last arrival − first arrival, added up per session as for throughput) |
+| μ (service rate per server) | SUM(pax) / SUM(processing minutes), i.e. passengers one server handles per minute. This equals 1 / pax-weighted average of processing time *per passenger*. |
+| c (servers) | distinct counters recorded per session, pax-weighted across sessions and rounded; a session with no counters counts as the checkpoint's configured `servers` |
+
+SLA checks always use each checkpoint's threshold **in force now**: changing
+an SLA re-evaluates past data. Historical thresholds are out of scope.
+
+Hourly analysis groups rows by the hour of arrival; its throughput is the
+passengers arriving in that hour divided by the number of days that hour was
+observed.
+
+## Queueing model (M/M/c)
+
+`backend/src/domain/queueing.js` takes λ and μ (passengers per minute) and c
+(servers, a whole number 1–100) and returns:
+
+| Output | Formula |
+|---|---|
+| ρ (utilisation) | λ / (c·μ) |
+| P(wait) | Erlang C(c, a) with a = λ/μ |
+| Wq (wait in queue) | P(wait) / (c·μ − λ), minutes |
+| Lq (queue length) | λ · Wq |
+| W (time in system) | Wq + 1/μ |
+| L (passengers in system) | λ · W |
+
+- **ρ ≥ 1 means overloaded**: there is no steady state, so the result is
+  `{ overloaded: true }` with every wait and length `null`. The UI shows
+  "Overloaded — queue grows without limit".
+- Erlang C is computed from the Erlang B recurrence
+  `B(k) = a·B(k−1) / (k + a·B(k−1))`, so no factorials are formed and c = 100
+  is exact. Unit tests check it against textbook values.
+- **Servers needed** is the smallest c whose Wq is within the checkpoint's
+  SLA, searched up to 100 ("more than 100" otherwise).
+
+## Dashboard and simulator
+
+**Dashboard** (Analysts and Admins) has six collapsible sections: overview
+KPIs, bottlenecks and staffing (sorted with overloaded checkpoints first,
+then by how far the predicted wait exceeds the SLA), hourly analysis, flight
+and counter breakdown, the wait-time histogram (5-minute bins in passengers,
+with the SLA drawn as a dashed line) and the daily trend. The browser
+remembers which sections are open. Every section takes the same filters:
+any number of checkpoints, a date range (on the session date, inclusive)
+and optionally one session.
+
+API: `GET /api/analytics/{summary,bottlenecks,hourly,breakdown,distribution,trend}`
+with `checkpoint_id` (repeat it or comma-separate it), `from`, `to`,
+`session_id`. Collectors get 403 on all of them.
+
+**Simulator** pre-fills λ, μ, c and the SLA from a checkpoint's observed data
+(`GET /api/simulator/defaults?checkpoint_id=…`) and recomputes on every change
+(`GET /api/simulator/run?lambda=…&mu=…&c=…&sla_minutes=…`), showing the
+servers needed for the SLA.
+
+Charts use Chart.js 4.5.1, served from `frontend/vendor/` (MIT licence
+alongside) because the Content-Security-Policy only allows scripts from the
+site itself.
+
 ## Security notes
 
 - **Login cookie.** The JWT lives in an `httpOnly`, `SameSite=Strict` cookie
@@ -239,7 +340,11 @@ the host or download the tarball and install it from a local path.
   and the parser never evaluates formulas. The commit can't inject rows: the
   browser sends only the preview id and choices.
 - **Headers.** Helmet sets a strict Content-Security-Policy
-  (`script-src 'self'`), so the frontend loads no third-party scripts.
+  (`script-src 'self'`), so the frontend loads no third-party scripts
+  (Chart.js is vendored).
+- **Analytics filters** are bound SQL parameters; checkpoint ids, dates and
+  session ids are validated before any query runs, and the breakdown
+  dimensions come from a fixed server-side list.
 
 ## Project layout
 

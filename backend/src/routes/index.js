@@ -6,6 +6,7 @@ const { checkpointRoutes } = require('./checkpoints');
 const { sessionRoutes } = require('./sessions');
 const { observationRoutes } = require('./observations');
 const { importRoutes } = require('./imports');
+const { analyticsRoutes, simulatorRoutes } = require('./analytics');
 
 /**
  * Every API router and the prefix it is mounted at under /api.
@@ -19,6 +20,8 @@ function buildApiMounts(ctx) {
     ['/sessions', sessionRoutes(ctx)],
     ['/observations', observationRoutes(ctx)],
     ['/imports', importRoutes(ctx)],
+    ['/analytics', analyticsRoutes(ctx)],
+    ['/simulator', simulatorRoutes(ctx)],
   ];
 }
 
