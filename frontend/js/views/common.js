@@ -10,3 +10,15 @@ export function errorText(err) {
 export function formatLocal(ts) {
   return ts ? ts.replace('T', ' ').slice(0, 16) : '';
 }
+
+/** Minutes with one decimal, or an em dash when there is no value. */
+export function formatMinutes(minutes) {
+  return minutes === null || minutes === undefined ? '—' : minutes.toFixed(1);
+}
+
+/** Current local time as 'YYYY-MM-DDTHH:MM:SS' (what datetime-local inputs use). */
+export function nowLocal() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}

@@ -12,8 +12,8 @@ PDF reports.
 > | Phase | Scope | State |
 > |---|---|---|
 > | 1 | Config, migrations, auth + approval, cookies + CSRF, RBAC, bootstrap admin, checkpoints | ✅ done |
-> | 2 | Sessions, observations, shift detection, row validation | next |
-> | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | |
+> | 2 | Sessions, observations, shift detection, row validation | ✅ done |
+> | 3 | Excel import (preview, fuzzy mapping, split, commit, rollback) | next |
 > | 4 | Metrics module, dashboard, Erlang C, simulator | |
 > | 5 | Pivot builder, PDF reports | |
 > | 6 | Audit log screen, backups, full README | |
@@ -110,6 +110,43 @@ npm test
 
 Uses `node:test` and `supertest` against an in-memory database. CI runs the
 same command on every push and pull request (`.github/workflows/test.yml`).
+
+## Sessions and observations
+
+A **session** is one observation run at one checkpoint on one date. Each
+**observation** is one group of 1–6 passengers served together, with three
+timestamps: arrival, service start, service end. Wait, processing and total
+minutes are computed once when the row is saved and stored with it.
+
+**Row rules** (manual entry and import). A row is rejected, with the reason
+shown, when:
+
+- pax is not a whole number from 1 to 6;
+- a timestamp is missing or not a real date/time;
+- service start is before arrival, or service end is before service start;
+- total time is over 6 hours (almost always a typing mistake);
+- the arrival date is neither the session date nor the next day (overnight
+  sessions may run past midnight).
+
+**Midnight crossing.** On the manual entry form you pick the arrival date
+and type three times. A time earlier than the one before it is taken as the
+next day (23:58 → 23:59 → 00:03 is a 5-minute row), unless that would make a
+gap of more than 6 hours, in which case it is treated as a mistake.
+
+**Shift** is detected automatically from the *pax-weighted* average arrival
+time of the session's rows: morning 05:00–12:59, afternoon 13:00–20:59,
+night 21:00–04:59. The boundaries live in one constant,
+`SHIFT_BOUNDARIES` in `backend/src/domain/shifts.js`. The average is taken
+over full timestamps, so a night session from 23:00 to 01:00 is detected as
+night, not midday.
+
+**Who can change what.** Collectors edit only sessions they created (and
+their observations); admins edit any session and are the only ones who can
+delete a session. Analysts can read everything but change nothing.
+
+Lists are paginated: `?page=1&page_size=25` (max 100), returning
+`{ items, page, page_size, total, total_pages }`. Sessions can be filtered by
+`checkpoint_id`, `from`, `to` (dates, inclusive) and `shift`, newest first.
 
 ## Security notes
 

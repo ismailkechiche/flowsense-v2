@@ -9,6 +9,9 @@ import { homeView } from './views/home.js';
 import { usersView } from './views/users.js';
 import { checkpointsView } from './views/checkpoints.js';
 import { accountView } from './views/account.js';
+import { sessionsView } from './views/sessions.js';
+import { sessionNewView } from './views/sessionNew.js';
+import { sessionDetailView } from './views/sessionDetail.js';
 import { notAuthorizedView, notFoundView } from './views/notAuthorized.js';
 
 const ALL_ROLES = ['collector', 'analyst', 'admin'];
@@ -18,6 +21,9 @@ defineRoute('/signup', { view: signupView, public: true });
 defineRoute('/home', { view: homeView, roles: ALL_ROLES });
 defineRoute('/account', { view: accountView, roles: ALL_ROLES });
 defineRoute('/checkpoints', { view: checkpointsView, roles: ALL_ROLES });
+defineRoute('/sessions', { view: sessionsView, roles: ALL_ROLES });
+defineRoute('/sessions/new', { view: sessionNewView, roles: ['collector', 'admin'] });
+defineRoute('/sessions/:id', { view: sessionDetailView, roles: ALL_ROLES });
 defineRoute('/users', { view: usersView, roles: ['admin'] });
 setFallbackViews({ notAuthorized: notAuthorizedView, notFound: notFoundView });
 

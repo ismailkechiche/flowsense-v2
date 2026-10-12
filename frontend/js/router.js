@@ -9,8 +9,26 @@ import { clear } from './dom.js';
 const routes = new Map();
 let fallbackViews = {};
 
+/** Paths may contain `:name` segments, passed to the view as params. */
 export function defineRoute(path, { view, roles = null, public: isPublic = false }) {
-  routes.set(path, { view, roles, isPublic });
+  routes.set(path, { view, roles, isPublic, parts: path.split('/') });
+}
+
+function matchRoute(path) {
+  const parts = path.split('/');
+  for (const route of routes.values()) {
+    if (route.parts.length !== parts.length) continue;
+    const params = {};
+    const matched = route.parts.every((part, i) => {
+      if (part.startsWith(':')) {
+        params[part.slice(1)] = decodeURIComponent(parts[i]);
+        return parts[i] !== '';
+      }
+      return part === parts[i];
+    });
+    if (matched) return { route, params };
+  }
+  return null;
 }
 
 export function setFallbackViews(views) {
@@ -30,7 +48,8 @@ function currentPath() {
 export async function render() {
   const main = document.getElementById('main');
   const path = currentPath();
-  const route = routes.get(path);
+  const match = matchRoute(path);
+  const route = match?.route;
   const user = getUser();
 
   let view;
@@ -40,13 +59,14 @@ export async function render() {
   else if (route.roles && !hasRole(route.roles)) view = fallbackViews.notAuthorized;
   else view = route.view;
 
+  const section = `/${path.split('/')[1]}`;
   for (const link of document.querySelectorAll('#nav a')) {
-    if (link.getAttribute('href') === `#${path}`) link.setAttribute('aria-current', 'page');
+    if (link.getAttribute('href') === `#${section}`) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
 
   clear(main);
-  await view(main);
+  await view(main, match?.params ?? {});
   applyRoleVisibility(main);
   main.focus({ preventScroll: true });
 }
