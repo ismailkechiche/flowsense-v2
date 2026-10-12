@@ -1,6 +1,7 @@
 'use strict';
 
 const { badRequest } = require('../domain/errors');
+const { parseLocalDate } = require('../domain/timeParse');
 
 /**
  * Tiny schema helper. A rule is `{ check, optional, nullable, default }`
@@ -79,6 +80,32 @@ const v = {
   id(opts = {}) {
     return v.int({ min: 1, ...opts });
   },
+  /** A calendar date 'YYYY-MM-DD'. */
+  date(opts = {}) {
+    return makeRule((raw) => {
+      const parsed = typeof raw === 'string' ? parseLocalDate(raw) : null;
+      if (!parsed) fail('must be a date in the form YYYY-MM-DD');
+      return parsed;
+    }, opts);
+  },
+  /**
+   * A string or number passed through unchanged, for fields whose rules
+   * live in the domain layer (e.g. observation rows, which report
+   * row-level reasons rather than generic field errors).
+   */
+  scalar(opts = {}) {
+    return makeRule((raw) => {
+      if (typeof raw !== 'string' && typeof raw !== 'number') fail('must be a string or a number');
+      if (typeof raw === 'string' && raw.length > 100) fail('is too long');
+      return raw;
+    }, opts);
+  },
+};
+
+/** page / page_size query parameters (spec §12.1). */
+const pagination = {
+  page: v.int({ min: 1, max: 1_000_000, default: 1 }),
+  page_size: v.int({ min: 1, max: 100, default: 25 }),
 };
 
 function checkSection(location, rules, input, details) {
@@ -130,4 +157,4 @@ function validate(schema = {}) {
   };
 }
 
-module.exports = { validate, v };
+module.exports = { validate, v, pagination };

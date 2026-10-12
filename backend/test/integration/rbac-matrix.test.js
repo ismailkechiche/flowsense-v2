@@ -33,6 +33,16 @@ const MATRIX = [
   ['GET', '/api/checkpoints/:id', ALL],
   ['POST', '/api/checkpoints', ['admin']],
   ['PATCH', '/api/checkpoints/:id', ['admin']],
+
+  ['GET', '/api/sessions', ALL],
+  ['POST', '/api/sessions', ['collector', 'admin']],
+  ['GET', '/api/sessions/:id', ALL],
+  ['PATCH', '/api/sessions/:id', ['collector', 'admin']],
+  ['DELETE', '/api/sessions/:id', ['admin']],
+  ['GET', '/api/sessions/:id/observations', ALL],
+  ['POST', '/api/sessions/:id/observations', ['collector', 'admin']],
+  ['PATCH', '/api/observations/:id', ['collector', 'admin']],
+  ['DELETE', '/api/observations/:id', ['collector', 'admin']],
 ];
 
 const key = (method, path) => `${method} ${path}`;
