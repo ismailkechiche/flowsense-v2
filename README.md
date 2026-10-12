@@ -35,6 +35,11 @@ PDF reports.
 
 Every role can read the checkpoint list (needed for session forms and filters).
 
+Import history (with rollback), the audit log and backups share one **Admin**
+page with a tab each (`#/admin?tab=imports|audit|backups`), shown only to
+admins; the old `#/imports`, `#/audit` and `#/backups` links open the
+matching tab.
+
 ## Requirements: Node.js 22 LTS
 
 FLOWSENSE needs **Node.js 22 LTS** (`"engines": ">=22 <23"`).
@@ -196,7 +201,7 @@ or expiry, upload the file again.
 already imported shows who imported it and when, and importing it again
 requires ticking *Import it again anyway*.
 
-**Rollback** (Admins, *Import history*) deletes exactly what the batch
+**Rollback** (Admins, *Admin → Import history*) deletes exactly what the batch
 created: its observations, plus the sessions it created. Sessions it only
 added to keep their other rows. If someone added rows by hand to a session
 the import created, the rollback lists them and asks again before deleting
@@ -289,23 +294,43 @@ observed.
 
 ## Dashboard and simulator
 
-**Dashboard** (Analysts and Admins) has six collapsible sections: overview
-KPIs, bottlenecks and staffing (sorted with overloaded checkpoints first,
-then by how far the predicted wait exceeds the SLA), hourly analysis, flight
-and counter breakdown, the wait-time histogram (5-minute bins in passengers,
-with the SLA drawn as a dashed line) and the daily trend. The browser
-remembers which sections are open. Every section takes the same filters:
-any number of checkpoints, a date range (on the session date, inclusive)
-and optionally one session.
+**Dashboard** (Analysts and Admins) leads with bar and line charts and keeps
+tables only where exact numbers matter. It has four tabs (the browser
+remembers the last one):
+
+- **Overview**: headline KPI tiles (avg wait, P90, SLA compliance,
+  passengers), key findings written in plain sentences (busiest hour,
+  checkpoints above their SLA, short-staffed checkpoints, worst day) and
+  average wait by checkpoint against each SLA target;
+- **Hours & days**: passengers and wait by hour of day, the daily trend and
+  the wait-time histogram (5-minute bins in passengers, SLA as dashed lines);
+- **Staffing**: counters open vs needed and utilisation per checkpoint, plus
+  a compact staffing table (sorted with overloaded checkpoints first, then by
+  how far the predicted wait exceeds the SLA). The full M/M/c columns
+  (P(wait), Lq, W, L) are one click away;
+- **Flights & counters**: average wait and processing time per flight and
+  per counter (the 12 busiest), with the exact numbers folded underneath.
+
+Terms such as λ, μ, ρ, P90 or Wq carry a small ⓘ that explains them in plain
+words. The filters are shared by every analytics screen: a period (all
+dates, last 7 days, last 30 days or a custom range on the session date,
+inclusive), checkpoint chips with an "All checkpoints" chip, and one session
+under *More filters*. Changes apply straight away and a line under the
+filters says what is shown.
 
 API: `GET /api/analytics/{summary,bottlenecks,hourly,breakdown,distribution,trend}`
 with `checkpoint_id` (repeat it or comma-separate it), `from`, `to`,
 `session_id`. Collectors get 403 on all of them.
 
-**Simulator** pre-fills λ, μ, c and the SLA from a checkpoint's observed data
-(`GET /api/simulator/defaults?checkpoint_id=…`) and recomputes on every change
-(`GET /api/simulator/run?lambda=…&mu=…&c=…&sla_minutes=…`), showing the
-servers needed for the SLA.
+**Simulator** pre-fills arrivals, service rate, counters and the SLA from a
+checkpoint's observed data (`GET /api/simulator/defaults?checkpoint_id=…`).
+Rates are entered **per hour** (passengers arriving per hour, passengers one
+counter serves per hour); the page converts them to the per-minute λ and μ
+the API uses. Every change recomputes on the server
+(`GET /api/simulator/run?lambda=…&mu=…&c=…&sla_minutes=…`) and shows a
+verdict (within / above the SLA, or overloaded), the counters needed, and a
+bar chart of the predicted wait for each number of counters (one server run
+per bar).
 
 Charts use Chart.js 4.5.1, served from `frontend/vendor/` (MIT licence
 alongside) because the Content-Security-Policy only allows scripts from the
@@ -319,9 +344,15 @@ site itself.
   date, hour, shift, flight, counter;
 - one or more **metrics**: avg wait, avg processing, avg total time,
   throughput, SLA compliance %, passengers, groups, breach pax;
-- **Table**, **Bar** or **Line**. Line is only offered when the rows have a
-  natural order (date or hour);
+- **Table**, **Bar** (the default) or **Line**. Line is only offered when the
+  rows have a natural order (date or hour). A chart shows only the chart; a
+  table is shown only when **Table** is chosen. With a column dimension and
+  several metrics, there is one chart per metric;
 - the same filters as the dashboard.
+
+*Quick start* buttons fill the builder with common views (wait by
+checkpoint, passengers by hour, wait by hour per checkpoint, daily trend,
+flight table).
 
 Every cell is pax-weighted through `domain/metrics.js`. Throughput per cell
 adds up each session's own window within that cell, like the dashboard. A
@@ -339,13 +370,31 @@ reorder and remove sections. The draft lives in the browser tab
 few checkpoints). The server recomputes everything and streams an A4 PDF,
 black and white only, in this order:
 
-1. cover (title, scope, generated by, generated at);
-2. KPI summary;
-3. SLA breaches by checkpoint;
-4. staffing recommendations (overloaded checkpoints called out at the top);
-5. the pivot sections in your order, each as a table, or a chart drawn
-   with PDFKit vector shapes with the table beneath it;
-6. page numbers in the footer.
+1. cover (title, scope, generated by, generated at, contents);
+2. **key findings**: a short written summary (volume and average wait, SLA
+   breaches, checkpoints above their SLA, busiest and slowest hours, worst
+   day, overloaded or short-staffed checkpoints, the flight with the most
+   breaches);
+3. KPI summary, each indicator with a one-line meaning;
+4. **by checkpoint**: avg / P90 wait against the SLA (chart) and a table
+   with passengers, waits, processing, throughput, compliance and peak hour;
+5. **by hour of day**: passengers and average wait per hour (charts), the
+   hourly table, and average wait by hour × checkpoint;
+6. **daily trend** (when the scope covers more than one day);
+7. **wait time distribution**: histogram, median and P90, the share
+   within each SLA, and a table with cumulative shares;
+8. **flights and counters**: the 15 busiest flights (chart and table) and
+   the counters;
+9. **SLA breach details**: by checkpoint, the hours and the flights with the
+   most breaches;
+10. **staffing recommendations**: the M/M/c table, with counters needed at
+    the average and at the busiest hour's arrival rate, and a written
+    reasoning per checkpoint (arrivals, service rate, utilisation, predicted
+    vs observed wait, recommendation);
+11. the pivot sections in your order: a **Table** section shows only the
+    table, a **Bar** or **Line** section shows only the chart (drawn with
+    PDFKit vector shapes; one chart per metric when split by columns);
+12. a glossary; page numbers in the footer.
 
 Long tables continue on the next page with their header repeated. Values
 above the SLA are **bold with a `(!)` marker**. Bar series are told apart
@@ -370,7 +419,7 @@ people are using the app. Each one is a complete, standalone SQLite file
 named `flowsense-YYYY-MM-DD-HHmm.db` (server local time) in `BACKUP_DIR`. A
 second backup in the same minute gets a `-2` suffix (then `-3`, and so on).
 
-**Manual backup.** As an admin, open **Backups** and click **Back up now**.
+**Manual backup.** As an admin, open **Admin → Backups** and click **Back up now**.
 The page lists the existing backups with their size and date.
 (API: `POST /api/admin/backups`, `GET /api/admin/backups`.)
 
@@ -419,7 +468,7 @@ Explorer, with the server stopped.)
 
 ## Audit log
 
-Admins can read the audit log under **Audit log**: newest first, 50 per
+Admins can read the audit log under **Admin → Audit log**: newest first, 50 per
 page, filterable by action and by date range (inclusive, server local
 date). Each entry shows when, who (*System* for scheduled backups), the
 action, the target, and details (for checkpoint changes, the before and

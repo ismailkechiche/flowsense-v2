@@ -45,6 +45,9 @@
   --chart-1: #2563eb;
   --chart-2: #d97706;
   --chart-sla: #c2410c;
+  --chart-danger: #dc2626;
+  --chart-ok: #059669;
+  --chart-neutral: #94a3b8;
   --chart-grid: #e5e9f0;
   --chart-text: #5b6474;
   --series-1: #2563eb; --series-2: #d97706; --series-3: #059669; --series-4: #7c3aed;
@@ -99,6 +102,9 @@
     --chart-1: #4aa8ff;
     --chart-2: #ffb347;
     --chart-sla: #ff7b7b;
+    --chart-danger: #f87171;
+    --chart-ok: #34d399;
+    --chart-neutral: #5b6f8c;
     --chart-grid: #1f2e45;
     --chart-text: #95a6bd;
     --series-1: #4aa8ff; --series-2: #ffb347; --series-3: #34d399; --series-4: #a78bfa;
@@ -141,6 +147,9 @@
   --chart-1: #4aa8ff;
   --chart-2: #ffb347;
   --chart-sla: #ff7b7b;
+  --chart-danger: #f87171;
+  --chart-ok: #34d399;
+  --chart-neutral: #5b6f8c;
   --chart-grid: #1f2e45;
   --chart-text: #95a6bd;
   --series-1: #4aa8ff; --series-2: #ffb347; --series-3: #34d399; --series-4: #a78bfa;

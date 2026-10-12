@@ -49,9 +49,13 @@ describe('PDF reports', () => {
     assert.equal(res.body.subarray(0, 5).toString(), '%PDF-');
     assert.match(res.body.toString('latin1'), /\/MediaBox \[0 0 595\.28 841\.89\]/); // A4
 
-    const text = pdfText(res.body).join('\n');
-    const order = ['FLOWSENSE', 'May review', 'Ana Lyst', 'KPI summary', 'SLA breaches by checkpoint',
-      'Staffing recommendations (M/M/c)', '1. Alpha view', '2. Bravo view', '3. Charlie view'];
+    const cover = pdfText(res.body)[0];
+    for (const marker of ['FLOWSENSE', 'May review', 'Ana Lyst']) assert.ok(cover.includes(marker), `cover lacks "${marker}"`);
+    // The body comes after the cover (whose contents list names the sections too).
+    const text = pdfText(res.body).slice(1).join('\n');
+    const order = ['Key findings', 'KPI summary', 'By checkpoint', 'By hour of day',
+      'Daily trend', 'Wait time distribution', 'Flights and counters', 'SLA breach details',
+      'Staffing recommendations (M/M/c)', 'Reasoning', '1. Alpha view', '2. Bravo view', '3. Charlie view', 'Glossary'];
     let last = -1;
     for (const marker of order) {
       const at = text.indexOf(marker, last + 1);
@@ -59,10 +63,21 @@ describe('PDF reports', () => {
       last = at;
     }
     assert.match(text, /OVERLOADED: Boarding Gate/);
+    assert.match(text, /Busiest hour: \d\d:00 with \d+ passengers/, 'written summary');
+    assert.match(text, /Security: about \d+ passengers arrive per hour/, 'staffing reasoning');
+    assert.match(text, /Recommendation:/);
+
+    // Hafedh's rule: a chart section shows only the chart, a table section only the table.
+    const between = (from, to) => text.slice(text.indexOf(from), to ? text.indexOf(to) : undefined).split('\n');
+    assert.ok(between('1. Alpha view', '2. Bravo view').includes('Checkpoint'), 'table section has its header row');
+    const bravo = between('2. Bravo view', '3. Charlie view');
+    assert.ok(!bravo.includes('Hour'), 'bar chart section has no table header row');
+    assert.ok(bravo.includes('Security') && bravo.includes('10:00'), 'bar chart legend and categories are drawn');
+    assert.ok(!between('3. Charlie view', 'Glossary').includes('Date'), 'line chart section has no table');
     assert.match(text, /\(!\) 16\.9/, 'Security avg wait above SLA is marked');
     const pages = pdfText(res.body).length;
     assert.ok(pages >= 2);
-    assert.match(text, new RegExp(`Page 1 of ${pages}`));
+    assert.match(cover, new RegExp(`Page 1 of ${pages}`));
     assert.match(text, new RegExp(`Page ${pages} of ${pages}`));
   });
 
@@ -96,7 +111,9 @@ describe('PDF reports', () => {
       .buffer(true).parse(binary);
     assert.equal(res.status, 200);
     const pages = pdfText(res.body);
-    const withRows = pages.filter((p) => /FL\d{3}/.test(p));
+    // The pivot section's pages (the built-in flight breakdown lists only the busiest).
+    const start = pages.findIndex((p) => p.includes('1. Every flight'));
+    const withRows = pages.slice(start).filter((p) => /FL\d{3}/.test(p));
     assert.ok(withRows.length >= 2, `flight table spans ${withRows.length} page(s)`);
     for (const page of withRows) assert.match(page, /Flight\nPassengers \(pax\)/, 'header repeated on each page');
     assert.match(pages.join('\n'), /FL119/);

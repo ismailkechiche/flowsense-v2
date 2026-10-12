@@ -1,10 +1,11 @@
 import { h, message, clear, toast, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText, formatLocal, pageHeader } from './common.js';
+import { errorText, formatLocal, card } from './common.js';
 import { pager } from './pager.js';
 
-export async function importHistoryView(main) {
+/** Import history, shown as a tab of the Admin page. */
+export async function importHistoryPanel(container) {
   const feedback = h('div', { 'aria-live': 'polite' });
   const holder = h('div', { class: 'stack' }, loading(t('app.loading')));
 
@@ -53,6 +54,6 @@ export async function importHistoryView(main) {
     }
   }
 
-  main.append(h('section', { class: 'stack' }, pageHeader(t('history.title'), { subtitle: t('history.subtitle') }), feedback, holder));
+  container.append(card({ title: t('history.title'), subtitle: t('history.subtitle'), icon: 'history', tone: 'teal' }, feedback, holder));
   await load();
 }

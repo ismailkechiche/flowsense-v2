@@ -2,7 +2,7 @@ import { h, iconChip, icon, emptyState, loading, clear } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
 import { getUser, hasRole } from '../auth.js';
-import { formatMinutes } from './common.js';
+import { formatMinutes, cardHeader } from './common.js';
 import { fmt, fmtPct } from './analyticsFilters.js';
 import { slaBadge } from './sessions.js';
 
@@ -14,6 +14,7 @@ const SHORTCUTS = [
   { href: '#/simulator', icon: 'simulator', tone: 'violet', key: 'simulator', roles: 'analyst admin' },
   { href: '#/pivot', icon: 'pivot', tone: 'amber', key: 'pivot', roles: 'analyst admin' },
   { href: '#/users', icon: 'users', tone: 'violet', key: 'users', roles: 'admin' },
+  { href: '#/admin', icon: 'settings', tone: 'amber', key: 'admin', roles: 'admin' },
   { href: '#/sessions', icon: 'sessions', key: 'sessions', roles: 'collector analyst' },
 ];
 
@@ -85,11 +86,10 @@ export async function homeView(main) {
     h('div', { class: 'quick-grid' }, SHORTCUTS.map(shortcut)),
     h('div', { class: 'grid-2' },
       h('section', { class: 'card stack' },
-        h('div', { class: 'card-header' }, h('h2', {}, t('home.recent')), h('a', { href: '#/sessions' }, t('home.allSessions'))),
+        cardHeader({ title: t('home.recent'), icon: 'sessions', tone: 'teal', actions: h('a', { href: '#/sessions' }, t('home.allSessions')) }),
         recent),
       h('section', { class: 'card stack', 'data-roles': 'analyst admin' },
-        h('div', { class: 'card-header' }, h('h2', {}, t('home.snapshot')), h('a', { href: '#/dashboard' }, t('home.openDashboard'))),
-        h('p', { class: 'muted' }, t('home.snapshotHelp')),
+        cardHeader({ title: t('home.snapshot'), subtitle: t('home.snapshotHelp'), icon: 'dashboard', actions: h('a', { href: '#/dashboard' }, t('home.openDashboard')) }),
         stats))));
 
   const jobs = [recentSessions(recent)];

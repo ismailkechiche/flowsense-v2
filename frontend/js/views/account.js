@@ -3,7 +3,7 @@ import { initials } from '../auth.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { getUser } from '../auth.js';
-import { errorText, pageHeader } from './common.js';
+import { errorText, pageHeader, cardHeader } from './common.js';
 
 export async function accountView(main) {
   const user = getUser();
@@ -24,7 +24,7 @@ export async function accountView(main) {
     } finally {
       submit.disabled = false;
     }
-  } }, h('h2', {}, t('account.changePassword')), current.wrapper, next.wrapper, feedback, submit);
+  } }, cardHeader({ title: t('account.changePassword'), subtitle: t('account.passwordHint'), icon: 'lock', tone: 'violet' }), current.wrapper, next.wrapper, feedback, submit);
 
   main.append(h('section', { class: 'stack narrow' },
     pageHeader(t('account.title')),
