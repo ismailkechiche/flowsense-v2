@@ -1,27 +1,175 @@
+/*
+ * Design tokens. Light is the default; dark applies when the OS asks for it
+ * (unless the user pinned light) or when the user pinned dark. The dark
+ * block is repeated because plain CSS cannot share it between the two.
+ */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f3f5f9;
   --surface: #ffffff;
-  --text: #1b1f24;
-  --muted: #555e68;
-  --border: #d0d5db;
-  --accent: #0b5cad;
+  --surface-2: #f8fafc;
+  --surface-3: #eef2f7;
+  --text: #0f172a;
+  --text-2: #334155;
+  --muted: #5b6474;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --accent: #0b63c5;
+  --accent-strong: #084e9c;
+  --accent-soft: #e7f0fb;
   --accent-text: #ffffff;
-  --danger: #a4161a;
-  --success: #1d6b36;
-  --warning: #8a5300;
-  --focus: #ffbf47;
-  --radius: 6px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #157f3b;
+  --success-soft: #e4f4e9;
+  --warning: #9a5b00;
+  --warning-soft: #fff3da;
+  --tone-blue: #0b63c5;
+  --tone-teal: #0f8a7e;
+  --tone-amber: #b45309;
+  --tone-violet: #6d4bd8;
+  --focus-ring: 0 0 0 3px rgba(11, 99, 197, 0.35);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.18);
+
+  /* The sidebar is dark in both themes (it echoes FLOWSENSE v1). */
+  --side-bg: #0b1220;
+  --side-border: #1b263b;
+  --side-text: #a3b1c6;
+  --side-text-strong: #f0f6ff;
+  --side-label: #5e7a99;
+  --side-hover: #142036;
+  --side-active: #22c3e6;
+  --side-active-soft: rgba(34, 195, 230, 0.12);
+
+  --chart-1: #2563eb;
+  --chart-2: #d97706;
+  --chart-sla: #c2410c;
+  --chart-grid: #e5e9f0;
+  --chart-text: #5b6474;
+  --series-1: #2563eb; --series-2: #d97706; --series-3: #059669; --series-4: #7c3aed;
+  --series-5: #0891b2; --series-6: #db2777; --series-7: #78716c; --series-8: #475569;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 248px;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light;
+  font-family: var(--font);
+  font-size: 15px;
   color: var(--text);
   background: var(--bg);
 }
-* { box-sizing: border-box; }
-body { margin: 0; line-height: 1.5; background: var(--bg); }
-h1, h2, h3 { line-height: 1.25; margin: 0 0 0.75rem; }
-a { color: var(--accent); }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-.skip-link { position: absolute; left: -999px; }
-.skip-link:focus { left: 1rem; top: 1rem; background: var(--surface); padding: 0.5rem; z-index: 10; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0e17;
+    --surface: #0f1623;
+    --surface-2: #131c2c;
+    --surface-3: #1a2539;
+    --text: #eef3fb;
+    --text-2: #c9d5e6;
+    --muted: #95a6bd;
+    --border: #1f2e45;
+    --border-strong: #2c3f5e;
+    --accent: #4aa8ff;
+    --accent-strong: #7cc0ff;
+    --accent-soft: rgba(74, 168, 255, 0.14);
+    --accent-text: #04111f;
+    --danger: #ff7b7b;
+    --danger-soft: rgba(255, 82, 82, 0.14);
+    --success: #34d399;
+    --success-soft: rgba(52, 211, 153, 0.13);
+    --warning: #ffb347;
+    --warning-soft: rgba(255, 179, 71, 0.14);
+    --tone-blue: #4aa8ff;
+    --tone-teal: #22d3c5;
+    --tone-amber: #ffb347;
+    --tone-violet: #a78bfa;
+    --focus-ring: 0 0 0 3px rgba(74, 168, 255, 0.45);
+    --shadow-sm: none;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+    --side-bg: #070b13;
+    --side-border: #172235;
+    --side-hover: #111a2b;
+    --chart-1: #4aa8ff;
+    --chart-2: #ffb347;
+    --chart-sla: #ff7b7b;
+    --chart-grid: #1f2e45;
+    --chart-text: #95a6bd;
+    --series-1: #4aa8ff; --series-2: #ffb347; --series-3: #34d399; --series-4: #a78bfa;
+    --series-5: #22d3ee; --series-6: #f472b6; --series-7: #d6d3d1; --series-8: #94a3b8;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0e17;
+  --surface: #0f1623;
+  --surface-2: #131c2c;
+  --surface-3: #1a2539;
+  --text: #eef3fb;
+  --text-2: #c9d5e6;
+  --muted: #95a6bd;
+  --border: #1f2e45;
+  --border-strong: #2c3f5e;
+  --accent: #4aa8ff;
+  --accent-strong: #7cc0ff;
+  --accent-soft: rgba(74, 168, 255, 0.14);
+  --accent-text: #04111f;
+  --danger: #ff7b7b;
+  --danger-soft: rgba(255, 82, 82, 0.14);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.13);
+  --warning: #ffb347;
+  --warning-soft: rgba(255, 179, 71, 0.14);
+  --tone-blue: #4aa8ff;
+  --tone-teal: #22d3c5;
+  --tone-amber: #ffb347;
+  --tone-violet: #a78bfa;
+  --focus-ring: 0 0 0 3px rgba(74, 168, 255, 0.45);
+  --shadow-sm: none;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --side-bg: #070b13;
+  --side-border: #172235;
+  --side-hover: #111a2b;
+  --chart-1: #4aa8ff;
+  --chart-2: #ffb347;
+  --chart-sla: #ff7b7b;
+  --chart-grid: #1f2e45;
+  --chart-text: #95a6bd;
+  --series-1: #4aa8ff; --series-2: #ffb347; --series-3: #34d399; --series-4: #a78bfa;
+  --series-5: #22d3ee; --series-6: #f472b6; --series-7: #d6d3d1; --series-8: #94a3b8;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; line-height: 1.5; background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+h1, h2, h3 { line-height: 1.25; margin: 0 0 0.75rem; color: var(--text); letter-spacing: -0.01em; }
+h1 { font-size: 1.75rem; font-weight: 750; letter-spacing: -0.025em; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 650; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-strong); }
+code { font-family: var(--font-mono); font-size: 0.85em; background: var(--surface-3); padding: 0.1rem 0.35rem; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* <main> is focused after each navigation for screen readers; no ring needed. */
+main:focus, main:focus-visible { outline: none; }
+.skip-link { position: absolute; left: -999px; top: 0.5rem; z-index: 100; }
+.skip-link:focus { left: 1rem; background: var(--surface); color: var(--text); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.icon { width: 1.15em; height: 1.15em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; }
+::selection { background: var(--accent-soft); }
 
 /*
  * Role gating (spec §6.3): elements with data-roles are hidden until JS adds
@@ -29,3 +177,7 @@ a { color: var(--accent); }
  * so toggling the class always works; the backend 403 is the real guard.
  */
 [data-roles]:not(.role-visible) { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -1,7 +1,7 @@
-import { h, field, option, message, clear } from '../dom.js';
+import { h, field, option, message, clear, emptyState, icon } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 import { analyticsFilters, fmt, fmtPct } from './analyticsFilters.js';
 import { chartBox, destroyCharts, pivotChart } from '../charts/charts.js';
 import { createReportDraft, generateAndReset } from '../reportDraft.js';
@@ -88,7 +88,7 @@ export async function pivotView(main) {
     if (!config.rows || config.metrics.length === 0) {
       lastResult = null;
       destroyCharts();
-      clear(resultHolder).append(h('p', { class: 'muted' }, t('pivot.pickFirst')));
+      clear(resultHolder).append(emptyState(t('pivot.pickFirstTitle'), t('pivot.pickFirst'), null, 'pivot'));
       renderDraft();
       return;
     }
@@ -148,7 +148,7 @@ export async function pivotView(main) {
     if (!result) return;
     resultHolder.append(h('h2', {}, result.config.title));
     if (result.cells.length === 0) {
-      resultHolder.append(h('p', { class: 'muted' }, t('dash.noData')));
+      resultHolder.append(emptyState(t('dash.noData'), t('dash.noDataHint')));
       return;
     }
     const viz = visualization();
@@ -172,7 +172,7 @@ export async function pivotView(main) {
     draft.add(config);
     renderDraft();
     message(feedback, 'success', t('pivot.added', { title: config.title }));
-  } }, t('pivot.addToReport'));
+  } }, icon('plus'), t('pivot.addToReport'));
 
   const reportTitle = field(t('report.title'), 'input', { maxlength: 120, autocomplete: 'off' });
   const scopeRange = h('input', { type: 'radio', name: 'scope', value: 'range', checked: true });
@@ -234,7 +234,7 @@ export async function pivotView(main) {
     syncLineAvailability();
     lastResult = null;
     destroyCharts();
-    clear(resultHolder).append(h('p', { class: 'muted' }, t('pivot.pickFirst')));
+    clear(resultHolder).append(emptyState(t('pivot.pickFirstTitle'), t('pivot.pickFirst'), null, 'pivot'));
     renderDraft();
   }
 
@@ -281,9 +281,10 @@ export async function pivotView(main) {
   syncLineAvailability();
 
   main.append(h('section', { class: 'stack' },
-    h('h1', {}, t('pivot.heading')),
+    pageHeader(t('pivot.heading'), { subtitle: t('pivot.subtitle') }),
     h('div', { class: 'card stack' },
-      h('div', { class: 'row' }, rows.wrapper, columns.wrapper, title.wrapper),
+      h('div', { class: 'card-header' }, h('h2', {}, t('pivot.build'))),
+      h('div', { class: 'form-grid' }, rows.wrapper, columns.wrapper, title.wrapper),
       metricSet, h('div', { class: 'row' }, vizSet, lineHint)),
     filters.form,
     feedback,
@@ -297,6 +298,6 @@ export async function pivotView(main) {
         h('label', {}, scopeRange, ` ${t('report.scopeRange')}`), h('label', {}, scopeSession, ` ${t('report.scopeSession')}`)),
       rangeFields, sessionFields,
       h('div', { class: 'row' }, generateButton), reportFeedback)));
-  clear(resultHolder).append(h('p', { class: 'muted' }, t('pivot.pickFirst')));
+  clear(resultHolder).append(emptyState(t('pivot.pickFirstTitle'), t('pivot.pickFirst'), null, 'pivot'));
   renderDraft();
 }

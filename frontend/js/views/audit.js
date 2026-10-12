@@ -1,7 +1,7 @@
-import { h, field, option, message, clear } from '../dom.js';
+import { h, field, option, message, clear, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText, formatLocal } from './common.js';
+import { errorText, formatLocal, pageHeader } from './common.js';
 import { pager } from './pager.js';
 
 const PAGE_SIZE = 50;
@@ -42,7 +42,7 @@ export function targetText(entry) {
 
 export async function auditView(main) {
   const feedback = h('div', { 'aria-live': 'polite' });
-  const holder = h('div', { class: 'stack' });
+  const holder = h('div', { class: 'stack' }, loading(t('app.loading')));
   const action = field(t('audit.action'), 'select', {}, [option('', t('common.all'))]);
   const from = field(t('audit.from'), 'input', { type: 'date' });
   const to = field(t('audit.to'), 'input', { type: 'date' });
@@ -55,7 +55,7 @@ export async function auditView(main) {
       })}`);
       clear(holder);
       if (result.total === 0) {
-        holder.append(h('p', { class: 'muted' }, t('audit.empty')));
+        holder.append(emptyState(t('audit.empty'), null, null, 'audit'));
         return;
       }
       holder.append(h('div', { class: 'table-wrap' }, h('table', {},
@@ -67,9 +67,9 @@ export async function auditView(main) {
           return h('tr', {},
             h('td', { class: 'nowrap' }, formatLocal(e.created_at)),
             h('td', {}, e.actor_user_id === null ? h('span', { class: 'muted' }, t('audit.system')) : (e.actor_name ?? `#${e.actor_user_id}`)),
-            h('td', {}, h('span', { class: e.action.endsWith('_failed') ? 'badge breach' : 'badge' }, t(`audit.a.${e.action}`))),
+            h('td', {}, h('span', { class: e.action.endsWith('_failed') ? 'badge breach' : 'badge accent' }, t(`audit.a.${e.action}`))),
             h('td', {}, targetText(e)),
-            h('td', {}, lines.length ? h('ul', { class: 'plain' }, lines.map((line) => h('li', {}, line))) : '—'));
+            h('td', { class: 'details-cell' }, lines.length ? h('ul', { class: 'plain' }, lines.map((line) => h('li', {}, line))) : '—'));
         })))),
       h('p', { class: 'muted' }, t('audit.count', { total: result.total })),
       pager(result, load));
@@ -87,9 +87,8 @@ export async function auditView(main) {
   for (const f of [action, from, to]) f.input.addEventListener('change', () => load());
 
   main.append(h('section', { class: 'stack' },
-    h('h1', {}, t('audit.title')),
-    h('p', { class: 'muted' }, t('audit.help')),
-    h('div', { class: 'row' }, action.wrapper, from.wrapper, to.wrapper),
+    pageHeader(t('audit.title'), { subtitle: t('audit.help') }),
+    h('div', { class: 'card row' }, action.wrapper, from.wrapper, to.wrapper),
     feedback, holder));
   await load();
 }

@@ -42,6 +42,14 @@ export function hasRole(roles) {
   return Boolean(currentUser && roles.includes(currentUser.role));
 }
 
+/** Up to two initials for the avatar ("Leila Mansour" → "LM"). */
+export function initials(name) {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  const letters = parts.length === 1 ? [parts[0][0]] : [parts[0][0], parts[parts.length - 1][0]];
+  return letters.join('').toUpperCase();
+}
+
 /**
  * Role gating (spec §6.3): toggles the `role-visible` class on every element
  * with data-roles. Visibility is controlled only by this class, never by an
@@ -54,8 +62,10 @@ export function applyRoleVisibility(root = document) {
     el.classList.toggle('role-visible', hasRole(roles));
   }
   const signedIn = Boolean(currentUser);
+  document.body.classList.toggle('signed-in', signedIn);
   document.getElementById('nav').hidden = !signedIn;
   document.getElementById('user-box').hidden = !signedIn;
   document.getElementById('user-name').textContent = currentUser?.name ?? '';
   document.getElementById('user-role').textContent = currentUser ? t(`role.${currentUser.role}`) : '';
+  document.getElementById('user-avatar').textContent = initials(currentUser?.name);
 }

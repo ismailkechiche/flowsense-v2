@@ -1,5 +1,6 @@
 import { getUser, hasRole, applyRoleVisibility } from './auth.js';
 import { clear } from './dom.js';
+import { t } from './i18n.js';
 
 /**
  * Hash router. Each route names the roles that may open it; anything else
@@ -60,10 +61,16 @@ export async function render() {
   else view = route.view;
 
   const section = `/${path.split('/')[1]}`;
-  for (const link of document.querySelectorAll('#nav a')) {
-    if (link.getAttribute('href') === `#${section}`) link.setAttribute('aria-current', 'page');
-    else link.removeAttribute('aria-current');
+  let label = null;
+  for (const link of document.querySelectorAll('#nav a, #user-box a')) {
+    if (link.getAttribute('href') === `#${section}`) {
+      link.setAttribute('aria-current', 'page');
+      label = link.closest('#user-box') ? t('nav.account') : link.textContent.trim();
+    } else {
+      link.removeAttribute('aria-current');
+    }
   }
+  document.title = label ? `${label} · FLOWSENSE` : 'FLOWSENSE';
 
   clear(main);
   await view(main, match?.params ?? {});

@@ -1,18 +1,151 @@
-.topbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
-  padding: 0.75rem 1.5rem; background: var(--surface); border-bottom: 1px solid var(--border);
+/* ---- App shell: dark sidebar + content area ------------------------------ */
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w); z-index: 40;
+  display: flex; flex-direction: column; background: var(--side-bg); border-right: 1px solid var(--side-border);
+  color: var(--side-text); overflow-y: auto; overscroll-behavior: contain;
 }
-.brand { font-weight: 700; letter-spacing: 0.08em; }
-.nav-list { display: flex; flex-wrap: wrap; gap: 1rem; list-style: none; margin: 0; padding: 0; }
-.nav-list a { text-decoration: none; padding: 0.25rem 0.1rem; }
-.nav-list a[aria-current="page"] { font-weight: 700; border-bottom: 2px solid var(--accent); }
-.user-box { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
-main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-.narrow { max-width: 420px; margin: 2rem auto; }
-.stack > * + * { margin-top: 1rem; }
-.row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
-@media (max-width: 600px) { main { padding: 1rem; } .topbar { padding: 0.75rem 1rem; } }
+main { margin-left: var(--sidebar-w); min-height: 100vh; padding: 2rem 2.5rem 4rem; }
+main > * { max-width: 1240px; margin-left: auto; margin-right: auto; }
+.mobile-bar { display: none; }
+.scrim { display: none; }
+
+/* Signed out: no sidebar, the auth screens own the whole page. */
+body:not(.signed-in) .sidebar, body:not(.signed-in) .mobile-bar { display: none; }
+body:not(.signed-in) main { margin-left: 0; padding: 0; }
+body:not(.signed-in) main > * { max-width: none; }
+
+.brand { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; color: var(--side-text-strong); }
+.sidebar > .brand { padding: 1.35rem 1.25rem 1.2rem; border-bottom: 1px solid var(--side-border); }
+.brand:hover { color: var(--side-text-strong); }
+.brand-mark {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, #22c3e6, #0b63c5); color: #fff; box-shadow: 0 4px 14px rgba(34, 195, 230, 0.25);
+}
+.brand-mark .icon { width: 20px; height: 20px; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-name { font-weight: 800; letter-spacing: 0.06em; font-size: 0.98rem; }
+.brand-sub { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--side-label); margin-top: 0.2rem; }
+
+#nav { padding: 0.75rem 0.75rem 1rem; flex: 1; }
+.nav-list { list-style: none; margin: 0; padding: 0; }
+.nav-list a {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; margin: 1px 0; border-radius: 8px;
+  color: var(--side-text); text-decoration: none; font-weight: 550; font-size: 0.93rem; position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-list a .icon { width: 18px; height: 18px; opacity: 0.85; }
+.nav-list a:hover { background: var(--side-hover); color: var(--side-text-strong); }
+.nav-list a[aria-current="page"] { background: var(--side-active-soft); color: var(--side-active); }
+.nav-list a[aria-current="page"]::before {
+  content: ''; position: absolute; left: -0.75rem; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--side-active);
+}
+.nav-list a[aria-current="page"] .icon { opacity: 1; }
+.nav-label {
+  padding: 1.1rem 0.75rem 0.4rem; font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--side-label);
+}
+.sidebar :focus-visible { outline-color: var(--side-active); }
+
+.sidebar-footer { border-top: 1px solid var(--side-border); padding: 0.75rem; display: grid; gap: 0.5rem; }
+.theme-button {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.75rem; border-radius: 8px;
+  background: transparent; border: 1px solid var(--side-border); color: var(--side-text); font-size: 0.85rem; font-weight: 550; justify-content: flex-start;
+}
+.theme-button:hover { background: var(--side-hover); color: var(--side-text-strong); border-color: var(--side-border); }
+.user-box { display: flex; align-items: center; gap: 0.25rem; }
+.user-box[hidden] { display: none; }
+.user-link {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.5rem; border-radius: 8px;
+  text-decoration: none; color: var(--side-text-strong);
+}
+.user-link:hover { background: var(--side-hover); color: var(--side-text-strong); }
+.user-link[aria-current="page"] { background: var(--side-active-soft); }
+.avatar {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #1f3b63, #12304f); color: #cfe6ff; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.02em;
+  border: 1px solid #2a4870;
+}
+.user-text { display: flex; flex-direction: column; min-width: 0; gap: 0.15rem; }
+.user-name { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-text .badge { align-self: flex-start; background: var(--side-hover); color: var(--side-text); border: 1px solid var(--side-border); }
+.sidebar .icon-button { color: var(--side-text); }
+.sidebar .icon-button:hover { background: var(--side-hover); color: var(--side-text-strong); }
+
+/* ---- Page structure ------------------------------------------------------ */
+.page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.page-header h1 { margin: 0; }
+.page-header .subtitle { color: var(--muted); margin-top: 0.35rem; max-width: 70ch; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.back-link {
+  display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; font-weight: 550; color: var(--muted);
+  text-decoration: none; margin-bottom: 0.6rem;
+}
+.back-link:hover { color: var(--accent); }
+.narrow { max-width: 560px; }
+.stack > * + * { margin-top: 1.25rem; }
+.stack-tight > * + * { margin-top: 0.4rem; }
+.row { display: flex; flex-wrap: wrap; gap: 0.85rem 1rem; align-items: flex-end; }
 .space-between { justify-content: space-between; align-items: center; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1.25rem; align-items: start; }
 /* Layout classes set `display`, which would beat the `hidden` attribute's
    UA rule; restore it (higher specificity, no !important). */
-:is(.row, .stack, .card)[hidden] { display: none; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 0.85rem 1rem; align-items: start; }
+:is(.row, .stack, .card, .grid-2, .form-grid)[hidden] { display: none; }
+
+/* ---- Auth screens -------------------------------------------------------- */
+.auth-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); min-height: 100vh; }
+.auth-brand {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem;
+  padding: 2.5rem 3rem; color: #e8f1ff;
+  background:
+    radial-gradient(900px 500px at 15% 0%, rgba(34, 195, 230, 0.22), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(11, 99, 197, 0.35), transparent 60%),
+    #0a0e17;
+}
+.auth-brand::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.35;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+.auth-brand > * { position: relative; z-index: 1; }
+.auth-brand .brand { color: #fff; }
+.auth-brand h2 { color: #fff; font-size: clamp(1.8rem, 3vw, 2.6rem); line-height: 1.1; letter-spacing: -0.035em; font-weight: 800; max-width: 16ch; margin-bottom: 1rem; }
+.auth-brand .lead { color: #a8bdd6; max-width: 46ch; font-size: 1.02rem; }
+.auth-points { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1rem; max-width: 46ch; }
+.auth-points li { display: flex; gap: 0.85rem; align-items: flex-start; color: #c9d8ec; }
+.auth-points .icon-chip { background: rgba(34, 195, 230, 0.14); color: #22c3e6; border-color: rgba(34, 195, 230, 0.25); }
+.auth-points strong { display: block; color: #fff; font-weight: 650; }
+.auth-foot { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: #5e7a99; }
+.auth-panel { display: grid; place-items: center; padding: 2.5rem 1.5rem; background: var(--bg); }
+.auth-card { width: 100%; max-width: 420px; }
+.auth-card h1 { font-size: 1.6rem; margin-bottom: 0.35rem; }
+.auth-card .subtitle { color: var(--muted); margin-bottom: 1.5rem; }
+.auth-card form > * + * { margin-top: 1rem; }
+.auth-card button[type="submit"] { width: 100%; justify-content: center; padding-block: 0.7rem; }
+.auth-switch { text-align: center; color: var(--muted); margin-top: 1.5rem; }
+
+/* ---- Responsive ---------------------------------------------------------- */
+@media (max-width: 960px) {
+  .mobile-bar {
+    display: flex; align-items: center; gap: 0.75rem; position: sticky; top: 0; z-index: 30;
+    padding: 0.6rem 1rem; background: var(--side-bg); border-bottom: 1px solid var(--side-border);
+  }
+  .mobile-bar .icon-button { color: var(--side-text-strong); }
+  .mobile-bar .brand-mark { width: 30px; height: 30px; }
+  /* Closed drawer is also invisible, so its links leave the tab order. */
+  .sidebar { transform: translateX(-100%); visibility: hidden; transition: transform 0.2s ease, visibility 0.2s; box-shadow: none; }
+  .sidebar.open { transform: none; visibility: visible; box-shadow: var(--shadow-lg); }
+  .scrim { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(5, 10, 20, 0.55); }
+  .scrim[hidden] { display: none; }
+  main { margin-left: 0; padding: 1.5rem 1.25rem 3rem; }
+  .auth-shell { grid-template-columns: 1fr; }
+  .auth-brand { padding: 1.75rem 1.5rem; }
+  .auth-brand .auth-points, .auth-brand .auth-foot { display: none; }
+  .auth-brand h2 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+  .auth-brand { gap: 1.25rem; }
+}
+@media (max-width: 600px) {
+  main { padding: 1.25rem 1rem 3rem; }
+  h1 { font-size: 1.45rem; }
+  .page-header { margin-bottom: 1.1rem; }
+}

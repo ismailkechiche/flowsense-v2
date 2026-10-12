@@ -1,8 +1,9 @@
 import { h, field, message } from '../dom.js';
+import { initials } from '../auth.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { getUser } from '../auth.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 
 export async function accountView(main) {
   const user = getUser();
@@ -26,7 +27,9 @@ export async function accountView(main) {
   } }, h('h2', {}, t('account.changePassword')), current.wrapper, next.wrapper, feedback, submit);
 
   main.append(h('section', { class: 'stack narrow' },
-    h('h1', {}, t('account.title')),
-    h('p', {}, user.name, ' · ', user.email, ' · ', t(`role.${user.role}`)),
+    pageHeader(t('account.title')),
+    h('div', { class: 'card profile' },
+      h('span', { class: 'avatar large', 'aria-hidden': 'true' }, initials(user.name)),
+      h('div', {}, h('h2', {}, user.name), h('p', { class: 'muted' }, user.email), h('span', { class: 'badge accent' }, t(`role.${user.role}`)))),
     form));
 }

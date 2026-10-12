@@ -1,3 +1,4 @@
+import { h, icon } from '../dom.js';
 import { t } from '../i18n.js';
 
 /** Turns an ApiError into a user-facing sentence. */
@@ -21,4 +22,17 @@ export function nowLocal() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/**
+ * Page title row: optional back link, the h1, an optional subtitle and
+ * actions on the right.
+ */
+export function pageHeader(title, { subtitle, actions, back } = {}) {
+  return h('header', { class: 'page-header' },
+    h('div', {},
+      back ? h('a', { class: 'back-link', href: back.href }, icon('back'), back.label) : null,
+      h('h1', {}, title),
+      subtitle ? (subtitle instanceof Node ? subtitle : h('p', { class: 'subtitle' }, subtitle)) : null),
+    actions ? h('div', { class: 'page-actions' }, actions) : null);
 }

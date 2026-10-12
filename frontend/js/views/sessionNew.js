@@ -2,7 +2,7 @@ import { h, field, option, message } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { navigate } from '../router.js';
-import { errorText, nowLocal } from './common.js';
+import { errorText, nowLocal, pageHeader } from './common.js';
 
 export async function sessionNewView(main) {
   const { items } = await api.get('/checkpoints');
@@ -28,6 +28,7 @@ export async function sessionNewView(main) {
   suggestName();
 
   const submit = h('button', { type: 'submit' }, t('sessions.create'));
+  const actions = h('div', { class: 'actions' }, submit, h('a', { class: 'button secondary', href: '#/sessions' }, t('common.cancel')));
   const form = h('form', { class: 'card stack', novalidate: true, onsubmit: async (event) => {
     event.preventDefault();
     submit.disabled = true;
@@ -44,10 +45,10 @@ export async function sessionNewView(main) {
       message(feedback, 'error', errorText(err), err.details);
       submit.disabled = false;
     }
-  } }, h('div', { class: 'row' }, checkpoint.wrapper, date.wrapper), name.wrapper, observer.wrapper, notes.wrapper, feedback, submit);
+  } }, h('div', { class: 'form-grid' }, checkpoint.wrapper, date.wrapper), name.wrapper, observer.wrapper, notes.wrapper, feedback, actions);
 
-  main.append(h('section', { class: 'stack' },
-    h('a', { href: '#/sessions' }, `← ${t('sessions.back')}`),
-    h('h1', {}, t('sessions.new')), form));
+  main.append(h('section', { class: 'stack narrow' },
+    pageHeader(t('sessions.new'), { subtitle: t('sessions.newSubtitle'), back: { href: '#/sessions', label: t('sessions.back') } }),
+    form));
   checkpoint.input.focus();
 }

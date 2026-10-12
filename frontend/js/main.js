@@ -3,6 +3,7 @@ import { loadCurrentUser, logout, clearUser, getUser } from './auth.js';
 import { defineRoute, setFallbackViews, startRouter, navigate } from './router.js';
 import { translateStatic, t } from './i18n.js';
 import { h } from './dom.js';
+import { setupShell } from './shell.js';
 import { loginView } from './views/login.js';
 import { signupView } from './views/signup.js';
 import { homeView } from './views/home.js';
@@ -54,6 +55,7 @@ document.getElementById('logout-button').addEventListener('click', async () => {
 
 async function boot() {
   translateStatic();
+  setupShell();
   try {
     await loadCurrentUser();
   } catch {

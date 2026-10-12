@@ -1,7 +1,7 @@
-import { h, message, clear, toast } from '../dom.js';
+import { h, message, clear, toast, emptyState, loading, icon } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 
 /** Bytes as a short human-readable size. */
 export function formatSize(bytes) {
@@ -15,8 +15,8 @@ export function formatSize(bytes) {
 
 export async function backupsView(main) {
   const feedback = h('div', { 'aria-live': 'polite' });
-  const info = h('p', { class: 'muted' });
-  const holder = h('div');
+  const info = h('p', { class: 'subtitle' });
+  const holder = h('div', {}, loading(t('app.loading')));
   const button = h('button', { type: 'button', onclick: backUp }, t('backups.now'));
 
   async function backUp() {
@@ -41,7 +41,7 @@ export async function backupsView(main) {
       info.textContent = t('backups.info', { directory: result.directory, hours: result.interval_hours, count: result.retention_count });
       clear(holder);
       if (result.items.length === 0) {
-        holder.append(h('p', { class: 'muted' }, t('backups.empty')));
+        holder.append(emptyState(t('backups.empty'), null, null, 'backups'));
         return;
       }
       holder.append(h('div', { class: 'table-wrap' }, h('table', {},
@@ -56,10 +56,8 @@ export async function backupsView(main) {
   }
 
   main.append(h('section', { class: 'stack' },
-    h('h1', {}, t('backups.title')),
-    info,
-    h('p', { class: 'card' }, t('backups.notDownloadable')),
-    h('div', { class: 'row' }, button),
+    pageHeader(t('backups.title'), { subtitle: info, actions: button }),
+    h('p', { class: 'message info' }, t('backups.notDownloadable')),
     feedback, holder));
   await load();
 }
