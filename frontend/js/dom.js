@@ -61,3 +61,30 @@ export function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 3000);
 }
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+/** An icon from the sprite in index.html (`name` is a fixed id, never user text). */
+export function icon(name) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+/** A rounded, tinted square holding an icon. */
+export function iconChip(name, tone) {
+  return h('span', { class: `icon-chip${tone ? ` tone-${tone}` : ''}`, 'aria-hidden': 'true' }, icon(name));
+}
+
+/** "Nothing here yet" panel: icon, title, optional hint and action. */
+export function emptyState(title, hint, action, iconName = 'inbox') {
+  return h('div', { class: 'empty-state' }, iconChip(iconName), h('h3', {}, title), hint ? h('p', {}, hint) : null, action ?? null);
+}
+
+/** Inline spinner with a label. */
+export function loading(text) {
+  return h('p', { class: 'loading', role: 'status' }, text);
+}

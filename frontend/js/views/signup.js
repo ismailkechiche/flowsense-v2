@@ -2,6 +2,7 @@ import { h, field, option, message } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { errorText } from './common.js';
+import { authLayout } from './authLayout.js';
 
 export async function signupView(main) {
   const name = field(t('signup.name'), 'input', { name: 'name', autocomplete: 'name', required: true, maxlength: 100 });
@@ -14,7 +15,7 @@ export async function signupView(main) {
   const feedback = h('div', { 'aria-live': 'polite' });
   const submit = h('button', { type: 'submit' }, t('signup.submit'));
 
-  const form = h('form', { class: 'card stack', novalidate: true, onsubmit: async (event) => {
+  const form = h('form', { novalidate: true, onsubmit: async (event) => {
     event.preventDefault();
     submit.disabled = true;
     message(feedback);
@@ -22,15 +23,20 @@ export async function signupView(main) {
       await api.post('/auth/signup', {
         name: name.input.value, email: email.input.value, password: password.input.value, requested_role: role.input.value,
       });
-      form.replaceChildren(h('h1', {}, t('signup.title')), h('p', { class: 'message success' }, t('signup.done')),
-        h('a', { href: '#/login' }, t('signup.backToLogin')));
+      form.replaceChildren(h('p', { class: 'message success', role: 'status' }, t('signup.done')),
+        h('a', { class: 'button', href: '#/login' }, t('signup.backToLogin')));
+      intro.hidden = true;
     } catch (err) {
       message(feedback, 'error', errorText(err), err.details);
       submit.disabled = false;
     }
-  } }, h('h1', {}, t('signup.title')), name.wrapper, email.wrapper, password.wrapper, role.wrapper, feedback, submit,
-  h('p', {}, h('a', { href: '#/login' }, t('signup.backToLogin'))));
+  } }, name.wrapper, email.wrapper, password.wrapper, role.wrapper, feedback, submit);
+  const intro = h('p', { class: 'subtitle' }, t('signup.subtitle'));
 
-  main.append(h('div', { class: 'narrow' }, form));
+  main.append(authLayout(
+    h('h1', {}, t('signup.title')),
+    intro,
+    form,
+    h('p', { class: 'auth-switch' }, `${t('signup.haveAccount')} `, h('a', { href: '#/login' }, t('signup.loginLink')))));
   name.input.focus();
 }

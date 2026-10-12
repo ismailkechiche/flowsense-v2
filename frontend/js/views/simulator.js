@@ -1,7 +1,7 @@
 import { h, field, option, message, clear } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 import { fmt, fmtPct } from './analyticsFilters.js';
 
 /**
@@ -67,8 +67,8 @@ export async function simulatorView(main) {
     }
   }
 
-  function cell(label, value) {
-    return h('div', { class: 'kpi' }, h('div', { class: 'kpi-label' }, label), h('div', { class: 'kpi-value' }, value));
+  function cell(label, value, tone) {
+    return h('div', { class: `kpi${tone ? ` tone-${tone}` : ''}` }, h('div', { class: 'kpi-label' }, label), h('div', { class: 'kpi-value' }, value));
   }
 
   function renderResult(r) {
@@ -76,31 +76,34 @@ export async function simulatorView(main) {
     const needed = r.recommended_exceeds_max
       ? t('dash.moreThan', { max: r.max_servers })
       : String(r.recommended_servers);
-    results.append(h('div', { class: `card stack${r.overloaded ? ' breach' : ''}` },
+    results.append(h('div', { class: 'stack' },
       r.overloaded
         ? h('p', { class: 'message error', role: 'alert' }, t('dash.overloadedText'))
         : null,
       h('div', { class: 'result-grid' },
-        cell(t('sim.rho'), fmt(r.rho, 3)),
-        cell(t('sim.pWait'), r.overloaded ? '—' : fmtPct(r.p_wait * 100)),
+        cell(t('sim.rho'), fmt(r.rho, 3), 'violet'),
+        cell(t('sim.pWait'), r.overloaded ? '—' : fmtPct(r.p_wait * 100), 'violet'),
         cell(t('sim.wq'), r.overloaded ? '∞' : `${fmt(r.wq, 2)} min`),
-        cell(t('sim.lq'), r.overloaded ? '∞' : fmt(r.lq, 2)),
+        cell(t('sim.lq'), r.overloaded ? '∞' : fmt(r.lq, 2), 'teal'),
         cell(t('sim.w'), r.overloaded ? '∞' : `${fmt(r.w, 2)} min`),
-        cell(t('sim.l'), r.overloaded ? '∞' : fmt(r.l, 2))),
-      h('p', {}, h('strong', {}, t('sim.needed', { minutes: r.sla_minutes, servers: needed })),
-        !r.overloaded && r.wq > r.sla_minutes ? h('span', { class: 'error-text' }, ` ${t('sim.currentBreaches')}`) : null)));
+        cell(t('sim.l'), r.overloaded ? '∞' : fmt(r.l, 2), 'teal')),
+      h('p', { class: `message ${!r.overloaded && r.wq > r.sla_minutes ? 'error' : 'info'}` }, h('strong', {}, t('sim.needed', { minutes: r.sla_minutes, servers: needed })),
+        !r.overloaded && r.wq > r.sla_minutes ? ` ${t('sim.currentBreaches')}` : null)));
   }
 
   for (const f of [lambda, mu, c, sla]) f.input.addEventListener('input', scheduleRun);
 
   main.append(h('section', { class: 'stack' },
-    h('h1', {}, t('sim.title')),
-    h('form', { class: 'card row', onsubmit: (event) => { event.preventDefault(); loadDefaults(); } },
-      checkpoint.wrapper, from.wrapper, to.wrapper, h('button', { type: 'submit' }, t('sim.load'))),
-    feedback, observed,
-    h('form', { class: 'card row', onsubmit: (event) => { event.preventDefault(); run(); } },
-      h('div', { class: 'stack-tight' }, lambda.wrapper, lambdaHour), mu.wrapper, c.wrapper, sla.wrapper),
-    h('p', { class: 'muted' }, t('sim.help')),
-    results));
+    pageHeader(t('sim.title'), { subtitle: t('sim.subtitle') }),
+    h('form', { class: 'card stack', onsubmit: (event) => { event.preventDefault(); loadDefaults(); } },
+      h('div', { class: 'card-header' }, h('h2', {}, t('sim.step1'))),
+      h('div', { class: 'row' }, checkpoint.wrapper, from.wrapper, to.wrapper, h('button', { type: 'submit', class: 'secondary' }, t('sim.load'))),
+      observed),
+    feedback,
+    h('form', { class: 'card stack', onsubmit: (event) => { event.preventDefault(); run(); } },
+      h('div', { class: 'card-header' }, h('h2', {}, t('sim.step2'))),
+      h('div', { class: 'form-grid' }, h('div', { class: 'stack-tight' }, lambda.wrapper, lambdaHour), mu.wrapper, c.wrapper, sla.wrapper),
+      h('p', { class: 'muted' }, t('sim.help'))),
+    h('section', { class: 'stack' }, h('h2', {}, t('sim.results')), results)));
   await loadDefaults();
 }

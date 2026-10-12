@@ -1,8 +1,8 @@
-import { h, field, message, clear, toast } from '../dom.js';
+import { h, field, message, clear, toast, icon } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { hasRole } from '../auth.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 
 function checkpointForm(initial, submitLabel, onSubmit, onCancel) {
   const name = field(t('checkpoints.name'), 'input', { required: true, maxlength: 80, value: initial.name ?? '' });
@@ -29,8 +29,8 @@ function checkpointForm(initial, submitLabel, onSubmit, onCancel) {
       submit.disabled = false;
     }
   } },
-  h('div', { class: 'row' }, name.wrapper, area.wrapper, servers.wrapper, sla.wrapper,
-    h('div', { class: 'field' }, h('label', { for: active.id }, t('checkpoints.active')), active)),
+  h('div', { class: 'form-grid' }, name.wrapper, area.wrapper, servers.wrapper, sla.wrapper),
+  h('label', { class: 'inline', for: active.id }, active, t('checkpoints.active')),
   feedback,
   h('div', { class: 'actions' }, submit, onCancel && h('button', { type: 'button', class: 'secondary', onclick: onCancel }, t('common.cancel'))));
   return form;
@@ -47,14 +47,16 @@ export async function checkpointsView(main) {
       const { items } = await api.get('/checkpoints');
       clear(listHolder);
       listHolder.append(h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, [t('checkpoints.name'), t('checkpoints.area'), t('checkpoints.servers'), t('checkpoints.sla'), t('checkpoints.active'), isAdmin && t('common.actions')]
-          .filter(Boolean).map((label) => h('th', { scope: 'col' }, label)))),
+        h('thead', {}, h('tr', {}, [[t('checkpoints.name')], [t('checkpoints.area')], [t('checkpoints.servers'), 'num'], [t('checkpoints.sla'), 'num'], [t('checkpoints.active')], isAdmin && [t('common.actions')]]
+          .filter(Boolean).map(([label, cls]) => h('th', { scope: 'col', class: cls }, label)))),
         h('tbody', {}, items.map((cp) => h('tr', {},
-          h('td', {}, cp.name),
-          h('td', {}, cp.area ?? ''),
-          h('td', {}, String(cp.servers)),
-          h('td', {}, String(cp.sla_wait_minutes)),
-          h('td', {}, cp.active ? t('common.yes') : t('common.no')),
+          h('td', {}, h('strong', {}, cp.name)),
+          h('td', { class: 'muted' }, cp.area ?? ''),
+          h('td', { class: 'num' }, String(cp.servers)),
+          h('td', { class: 'num' }, String(cp.sla_wait_minutes)),
+          h('td', {}, cp.active
+            ? h('span', { class: 'badge status-approved' }, t('common.yes'))
+            : h('span', { class: 'badge status-disabled' }, t('common.no'))),
           isAdmin && h('td', {}, h('button', { type: 'button', class: 'secondary', onclick: () => edit(cp) }, t('checkpoints.edit')))))))));
     } catch (err) {
       message(feedback, 'error', errorText(err));
@@ -67,30 +69,35 @@ export async function checkpointsView(main) {
 
   function edit(cp) {
     clear(editorHolder);
-    editorHolder.append(h('h2', {}, `${t('checkpoints.edit')}: ${cp.name}`), checkpointForm(cp, t('common.save'), async (data) => {
+    const form = checkpointForm(cp, t('common.save'), async (data) => {
       await api.patch(`/checkpoints/${cp.id}`, data);
       toast(t('common.saved'));
       closeEditor();
       await load();
-    }, closeEditor));
+    }, closeEditor);
+    form.prepend(h('h2', {}, `${t('checkpoints.edit')}: ${cp.name}`));
+    editorHolder.append(form);
     editorHolder.querySelector('input').focus();
   }
 
   function add() {
     clear(editorHolder);
-    editorHolder.append(h('h2', {}, t('checkpoints.add')), checkpointForm({}, t('checkpoints.create'), async (data) => {
+    const form = checkpointForm({}, t('checkpoints.create'), async (data) => {
       await api.post('/checkpoints', data);
       toast(t('common.saved'));
       closeEditor();
       await load();
-    }, closeEditor));
+    }, closeEditor);
+    form.prepend(h('h2', {}, t('checkpoints.add')));
+    editorHolder.append(form);
     editorHolder.querySelector('input').focus();
   }
 
   main.append(h('section', { class: 'stack' },
-    h('h1', {}, t('checkpoints.title')),
-    h('p', { class: 'muted' }, t('checkpoints.slaNote')),
-    h('div', { 'data-roles': 'admin' }, h('button', { type: 'button', onclick: add }, t('checkpoints.add'))),
+    pageHeader(t('checkpoints.title'), {
+      subtitle: t('checkpoints.slaNote'),
+      actions: h('button', { type: 'button', onclick: add, 'data-roles': 'admin' }, icon('plus'), t('checkpoints.add')),
+    }),
     feedback, editorHolder, listHolder));
   await load();
 }

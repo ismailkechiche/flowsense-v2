@@ -1,12 +1,12 @@
-import { h, message, clear, toast } from '../dom.js';
+import { h, message, clear, toast, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText, formatLocal } from './common.js';
+import { errorText, formatLocal, pageHeader } from './common.js';
 import { pager } from './pager.js';
 
 export async function importHistoryView(main) {
   const feedback = h('div', { 'aria-live': 'polite' });
-  const holder = h('div', { class: 'stack' });
+  const holder = h('div', { class: 'stack' }, loading(t('app.loading')));
 
   async function rollback(batch) {
     try {
@@ -31,7 +31,7 @@ export async function importHistoryView(main) {
       const result = await api.get(`/imports${query({ page })}`);
       clear(holder);
       if (result.total === 0) {
-        holder.append(h('p', { class: 'muted' }, t('common.empty')));
+        holder.append(emptyState(t('history.none'), t('history.noneHint'), null, 'history'));
         return;
       }
       holder.append(h('div', { class: 'table-wrap' }, h('table', {},
@@ -40,7 +40,7 @@ export async function importHistoryView(main) {
         h('tbody', {}, result.items.map((b) => h('tr', {},
           h('td', {}, b.filename),
           h('td', {}, b.uploaded_by_name),
-          h('td', {}, formatLocal(b.created_at)),
+          h('td', { class: 'nowrap' }, formatLocal(b.created_at)),
           h('td', { class: 'num' }, String(b.row_count)),
           h('td', { class: 'num' }, String(b.rejected_row_count)),
           h('td', {}, b.status === 'committed'
@@ -53,6 +53,6 @@ export async function importHistoryView(main) {
     }
   }
 
-  main.append(h('section', { class: 'stack' }, h('h1', {}, t('history.title')), feedback, holder));
+  main.append(h('section', { class: 'stack' }, pageHeader(t('history.title'), { subtitle: t('history.subtitle') }), feedback, holder));
   await load();
 }

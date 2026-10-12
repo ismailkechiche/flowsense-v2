@@ -1,8 +1,8 @@
-import { h, field, option, message, clear, toast } from '../dom.js';
+import { h, field, option, message, clear, toast, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
 import { getUser } from '../auth.js';
-import { errorText, formatLocal } from './common.js';
+import { errorText, formatLocal, pageHeader } from './common.js';
 
 const ROLES = ['collector', 'analyst', 'admin'];
 const STATUSES = ['pending', 'approved', 'rejected', 'disabled'];
@@ -15,7 +15,7 @@ function roleSelect(selected, label) {
 export async function usersView(main) {
   const me = getUser();
   const feedback = h('div', { 'aria-live': 'polite' });
-  const tableHolder = h('div');
+  const tableHolder = h('div', {}, loading(t('app.loading')));
   const filter = field(t('users.filter'), 'select', {}, [
     option('', t('common.all')),
     ...STATUSES.map((s) => option(s, t(`status.${s}`), s === 'pending')),
@@ -59,18 +59,20 @@ export async function usersView(main) {
       const { items } = await api.get(`/users${query({ status: filter.input.value })}`);
       clear(tableHolder);
       if (items.length === 0) {
-        tableHolder.append(h('p', { class: 'muted' }, t('common.empty')));
+        tableHolder.append(filter.input.value === 'pending'
+          ? emptyState(t('users.noPending'), t('users.noPendingHint'), null, 'check')
+          : emptyState(t('users.none'), null, null, 'users'));
         return;
       }
       tableHolder.append(h('div', { class: 'table-wrap' }, h('table', {},
         h('thead', {}, h('tr', {}, [t('users.name'), t('users.email'), t('users.role'), t('users.status'), t('users.created'), t('common.actions')]
           .map((label) => h('th', { scope: 'col' }, label)))),
         h('tbody', {}, items.map((user) => h('tr', {},
-          h('td', {}, user.name),
-          h('td', {}, user.email),
+          h('td', {}, h('strong', {}, user.name)),
+          h('td', { class: 'muted' }, user.email),
           h('td', {}, t(`role.${user.role}`)),
           h('td', {}, h('span', { class: `badge status-${user.status}` }, t(`status.${user.status}`))),
-          h('td', {}, formatLocal(user.created_at)),
+          h('td', { class: 'nowrap' }, formatLocal(user.created_at)),
           h('td', {}, actionsFor(user))))))));
     } catch (err) {
       message(feedback, 'error', errorText(err));
@@ -78,6 +80,8 @@ export async function usersView(main) {
   }
 
   filter.input.addEventListener('change', load);
-  main.append(h('section', { class: 'stack' }, h('h1', {}, t('users.title')), h('div', { class: 'row' }, filter.wrapper), feedback, tableHolder));
+  main.append(h('section', { class: 'stack' },
+    pageHeader(t('users.title'), { subtitle: t('users.subtitle') }),
+    h('div', { class: 'card row' }, filter.wrapper), feedback, tableHolder));
   await load();
 }

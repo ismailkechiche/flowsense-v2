@@ -1,7 +1,7 @@
-import { h, message, clear } from '../dom.js';
+import { h, message, clear, loading, emptyState } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 import { analyticsFilters, fmt, fmtPct } from './analyticsFilters.js';
 import { chartBox, destroyCharts, histogramChart, hourlyChart, trendChart } from '../charts/charts.js';
 
@@ -31,27 +31,27 @@ function table(headers, rows) {
     h('tbody', {}, rows)));
 }
 
-function kpi(label, value, breach = false) {
-  return h('div', { class: `kpi${breach ? ' breach' : ''}` },
+function kpi(label, value, breach = false, tone = null) {
+  return h('div', { class: `kpi${tone ? ` tone-${tone}` : ''}${breach ? ' breach' : ''}` },
     h('div', { class: 'kpi-label' }, label),
     h('div', { class: 'kpi-value' }, value, breach ? h('span', { class: 'visually-hidden' }, ` (${t('sessions.breach')})`) : null));
 }
 
 function overview(s) {
-  if (s.pax_total === 0) return h('p', { class: 'muted' }, t('dash.noData'));
+  if (s.pax_total === 0) return emptyState(t('dash.noData'), t('dash.noDataHint'), null, 'dashboard');
   const sla = s.sla_wait_minutes;
   const over = (minutes) => sla !== null && minutes !== null && minutes > sla;
   return h('div', { class: 'stack' },
     h('div', { class: 'kpi-grid' },
       kpi(t('dash.avgWait'), `${fmt(s.avg_wait_minutes)} min`, over(s.avg_wait_minutes)),
-      kpi(t('dash.avgProcessing'), `${fmt(s.avg_processing_minutes)} min`),
-      kpi(t('dash.avgTotal'), `${fmt(s.avg_total_minutes)} min`),
-      kpi(t('dash.throughput'), `${fmt(s.throughput_per_hour, 0)} ${t('dash.paxPerHour')}`),
-      kpi(t('dash.slaCompliance'), fmtPct(s.sla_compliance_pct), s.breach_pax > 0),
+      kpi(t('dash.avgProcessing'), `${fmt(s.avg_processing_minutes)} min`, false, 'teal'),
+      kpi(t('dash.avgTotal'), `${fmt(s.avg_total_minutes)} min`, false, 'teal'),
+      kpi(t('dash.throughput'), `${fmt(s.throughput_per_hour, 0)} ${t('dash.paxPerHour')}`, false, 'amber'),
+      kpi(t('dash.slaCompliance'), fmtPct(s.sla_compliance_pct), s.breach_pax > 0, 'teal'),
       kpi(t('dash.p90Wait'), `${fmt(s.p90_wait_minutes)} min`, over(s.p90_wait_minutes)),
-      kpi(t('dash.totalPax'), String(s.pax_total)),
-      kpi(t('dash.totalGroups'), String(s.group_count))),
-    h('p', { class: s.breach_pax > 0 ? 'error-text' : 'muted' },
+      kpi(t('dash.totalPax'), String(s.pax_total), false, 'violet'),
+      kpi(t('dash.totalGroups'), String(s.group_count), false, 'violet')),
+    h('p', { class: s.breach_pax > 0 ? 'message error' : 'muted' },
       t('dash.breaches', { pax: s.breach_pax, groups: s.breach_groups }),
       ' ', sla !== null ? t('dash.slaIs', { minutes: sla }) : t('dash.slaPerCheckpoint'),
       ' ', t('dash.p50', { minutes: fmt(s.p50_wait_minutes) })));
@@ -154,7 +154,7 @@ export async function dashboardView(main) {
   const bodies = {};
   const pending = {};
   const sections = SECTIONS.map((name) => {
-    bodies[name] = h('div', {}, h('p', { class: 'muted' }, t('app.loading')));
+    bodies[name] = h('div', {}, loading(t('app.loading')));
     const details = h('details', { class: 'section', open: openState[name] !== false },
       h('summary', {}, t(`dash.section.${name}`)), bodies[name]);
     details.addEventListener('toggle', () => {
@@ -170,7 +170,7 @@ export async function dashboardView(main) {
     message(feedback);
     destroyCharts();
     const qs = query(values);
-    for (const name of SECTIONS) clear(bodies[name]).append(h('p', { class: 'muted' }, t('app.loading')));
+    for (const name of SECTIONS) clear(bodies[name]).append(loading(t('app.loading')));
     await Promise.all(SECTIONS.map(async (name, i) => {
       try {
         const data = await api.get(`/analytics/${ENDPOINT[name]}${qs}`);
@@ -188,6 +188,6 @@ export async function dashboardView(main) {
   }
 
   const filters = await analyticsFilters({ onApply: load });
-  main.append(h('section', { class: 'stack' }, h('h1', {}, t('dash.title')), filters.form, feedback, ...sections));
+  main.append(h('section', { class: 'stack' }, pageHeader(t('dash.title'), { subtitle: t('dash.subtitle') }), filters.form, feedback, ...sections));
   await load(filters.values());
 }

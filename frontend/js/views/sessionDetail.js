@@ -1,9 +1,9 @@
-import { h, field, option, message, clear, toast } from '../dom.js';
+import { h, field, option, message, clear, toast, icon, emptyState, loading } from '../dom.js';
 import { t } from '../i18n.js';
 import { api, query } from '../api.js';
 import { getUser } from '../auth.js';
 import { navigate } from '../router.js';
-import { errorText, formatMinutes, formatLocal, nowLocal } from './common.js';
+import { errorText, formatMinutes, formatLocal, nowLocal, pageHeader } from './common.js';
 import { pager } from './pager.js';
 import { slaBadge } from './sessions.js';
 
@@ -102,11 +102,11 @@ function observationForm(session, initial, onDone) {
       submit.disabled = false;
     }
   } },
-  h('h2', {}, isEdit ? `${t('obs.edit')} ${initial.passenger_group_code}` : t('obs.add')),
-  h('div', { class: 'row' }, pax.wrapper, group.wrapper, flight.wrapper, counter.wrapper),
-  h('div', { class: 'row' }, date.wrapper, arrival.wrapper, start.wrapper, end.wrapper),
+  h('div', { class: 'card-header' }, h('h2', {}, isEdit ? `${t('obs.edit')} ${initial.passenger_group_code}` : t('obs.add'))),
+  h('div', { class: 'form-grid' }, pax.wrapper, group.wrapper, flight.wrapper, counter.wrapper),
+  h('div', { class: 'form-grid' }, date.wrapper, arrival.wrapper, start.wrapper, end.wrapper),
   h('p', { class: 'muted' }, t('obs.midnightHint')),
-  feedback, submit);
+  feedback, h('div', { class: 'actions' }, submit));
   return form;
 }
 
@@ -133,7 +133,7 @@ function sessionEditForm(session, checkpoints, onSaved, onCancel) {
     } catch (err) {
       message(feedback, 'error', errorText(err), err.details);
     }
-  } }, h('h2', {}, t('sessions.edit')), h('div', { class: 'row' }, name.wrapper, date.wrapper, checkpoint.wrapper, observer.wrapper),
+  } }, h('h2', {}, t('sessions.edit')), h('div', { class: 'form-grid' }, name.wrapper, date.wrapper, checkpoint.wrapper, observer.wrapper),
   notes.wrapper, feedback,
   h('div', { class: 'actions' }, h('button', { type: 'submit' }, t('common.save')), h('button', { type: 'button', class: 'secondary', onclick: onCancel }, t('common.cancel'))));
 }
@@ -142,7 +142,7 @@ export async function sessionDetailView(main, { id }) {
   const feedback = h('div', { 'aria-live': 'polite' });
   const summaryHolder = h('div');
   const editorHolder = h('div');
-  const obsHolder = h('div', { class: 'stack' });
+  const obsHolder = h('div', { class: 'stack' }, loading(t('app.loading')));
   let session;
   let currentPage = 1;
   const { items: checkpoints } = await api.get('/checkpoints');
@@ -151,24 +151,36 @@ export async function sessionDetailView(main, { id }) {
     ({ session } = await api.get(`/sessions/${encodeURIComponent(id)}`));
     const editable = canEdit(session);
     clear(summaryHolder);
-    summaryHolder.append(h('div', { class: 'card stack' },
-      h('h1', {}, session.name),
-      h('dl', { class: 'facts' },
-        h('dt', {}, t('sessions.checkpoint')), h('dd', {}, session.checkpoint_name),
-        h('dt', {}, t('sessions.date')), h('dd', {}, session.date),
-        h('dt', {}, t('sessions.shift')), h('dd', {}, session.shift ? t(`shift.${session.shift}`) : t('shift.none')),
-        h('dt', {}, t('sessions.observer')), h('dd', {}, session.observer ?? '—'),
-        h('dt', {}, t('sessions.groups')), h('dd', {}, String(session.group_count)),
-        h('dt', {}, t('sessions.pax')), h('dd', {}, String(session.pax_total)),
-        h('dt', {}, t('sessions.avgWait')), h('dd', {}, formatMinutes(session.avg_wait_minutes), ' ', slaBadge(session)),
-        h('dt', {}, t('sessions.createdBy')), h('dd', {}, session.created_by_name)),
-      session.breach_pax > 0 ? h('p', { class: 'muted' }, t('sessions.breachDetail', { pax: session.breach_pax, groups: session.breach_groups, sla: session.sla_wait_minutes })) : null,
-      session.notes ? h('p', {}, session.notes) : null,
-      editable
-        ? h('div', { class: 'actions' },
-          h('button', { type: 'button', class: 'secondary', onclick: openEditor }, t('sessions.edit')),
-          getUser().role === 'admin' && h('button', { type: 'button', class: 'danger', onclick: removeSession }, t('sessions.delete')))
-        : h('p', { class: 'muted' }, t('sessions.readOnly'))));
+    const breached = Boolean(session.sla_breached);
+    const tile = (label, value, tone, breach = false) => h('div', { class: `kpi ${tone ? `tone-${tone}` : ''}${breach ? ' breach' : ''}` },
+      h('div', { class: 'kpi-label' }, label), h('div', { class: 'kpi-value' }, value,
+        breach ? h('span', { class: 'visually-hidden' }, ` (${t('sessions.breach')})`) : null));
+    summaryHolder.append(h('div', { class: 'stack' },
+      pageHeader(session.name, {
+        back: { href: '#/sessions', label: t('sessions.back') },
+        actions: editable
+          ? [h('button', { type: 'button', class: 'secondary', onclick: openEditor }, t('sessions.edit')),
+            getUser().role === 'admin' && h('button', { type: 'button', class: 'danger', onclick: removeSession }, t('sessions.delete'))]
+          : null,
+      }),
+      h('div', { class: 'meta-chips' },
+        h('span', { class: 'badge accent' }, icon('checkpoints'), session.checkpoint_name),
+        h('span', { class: 'badge' }, session.date),
+        h('span', { class: 'badge' }, session.shift ? t(`shift.${session.shift}`) : t('shift.none')),
+        session.import_batch_id ? h('span', { class: 'badge' }, t('sessions.imported')) : null,
+        slaBadge(session)),
+      h('div', { class: 'kpi-grid' },
+        tile(t('sessions.avgWait'), `${formatMinutes(session.avg_wait_minutes)} min`, null, breached),
+        tile(t('sessions.pax'), String(session.pax_total), 'violet'),
+        tile(t('sessions.groups'), String(session.group_count), 'teal'),
+        tile(t('sessions.slaTarget'), `${session.sla_wait_minutes} min`, 'muted')),
+      session.breach_pax > 0 ? h('p', { class: 'message error' }, t('sessions.breachDetail', { pax: session.breach_pax, groups: session.breach_groups, sla: session.sla_wait_minutes })) : null,
+      h('div', { class: 'card' },
+        h('dl', { class: 'facts' },
+          h('dt', {}, t('sessions.observer')), h('dd', {}, session.observer ?? '—'),
+          h('dt', {}, t('sessions.createdBy')), h('dd', {}, session.created_by_name),
+          session.notes ? [h('dt', {}, t('sessions.notes')), h('dd', {}, session.notes)] : null),
+        editable ? null : h('p', { class: 'muted' }, t('sessions.readOnly')))));
     return editable;
   }
 
@@ -192,24 +204,25 @@ export async function sessionDetailView(main, { id }) {
     currentPage = page;
     const result = await api.get(`/sessions/${session.id}/observations${query({ page })}`);
     clear(obsHolder);
-    obsHolder.append(h('h2', {}, t('obs.title')));
+    obsHolder.append(h('div', { class: 'card-header' }, h('h2', {}, t('obs.title')),
+      result.total > 0 ? h('span', { class: 'muted' }, t('obs.count', { count: result.total })) : null));
     if (result.total === 0) {
-      obsHolder.append(h('p', { class: 'muted' }, t('common.empty')));
+      obsHolder.append(emptyState(t('obs.none'), editable ? t('obs.noneHint') : null, null, 'clock'));
       return;
     }
     const headers = [t('obs.group'), 'Pax', t('obs.flight'), t('obs.counter'), t('obs.arrival'), t('obs.start'), t('obs.end'),
       t('obs.wait'), t('obs.processing'), t('obs.total'), editable && t('common.actions')].filter(Boolean);
-    obsHolder.append(h('div', { class: 'table-wrap' }, h('table', {},
+    obsHolder.append(h('div', { class: 'table-wrap' }, h('table', { class: 'compact' },
       h('thead', {}, h('tr', {}, headers.map((label) => h('th', { scope: 'col' }, label)))),
       h('tbody', {}, result.items.map((o) => h('tr', {},
         h('td', {}, o.passenger_group_code),
         h('td', { class: 'num' }, String(o.pax)),
         h('td', {}, o.flight_no ?? ''),
         h('td', {}, o.counter ?? ''),
-        h('td', {}, formatLocal(o.arrival_time)),
-        h('td', {}, formatLocal(o.service_start)),
-        h('td', {}, formatLocal(o.service_end)),
-        h('td', { class: 'num' }, formatMinutes(o.wait_minutes), o.wait_minutes > session.sla_wait_minutes ? h('span', { class: 'badge breach' }, ' ⚠') : null),
+        h('td', { class: 'nowrap' }, formatLocal(o.arrival_time)),
+        h('td', { class: 'nowrap' }, formatLocal(o.service_start)),
+        h('td', { class: 'nowrap' }, formatLocal(o.service_end)),
+        h('td', { class: 'num' }, formatMinutes(o.wait_minutes), o.wait_minutes > session.sla_wait_minutes ? [' ', h('span', { class: 'badge breach', title: t('sessions.breach') }, '⚠')] : null),
         h('td', { class: 'num' }, formatMinutes(o.processing_minutes)),
         h('td', { class: 'num' }, formatMinutes(o.total_minutes)),
         editable && h('td', {}, h('div', { class: 'actions' },
@@ -246,9 +259,12 @@ export async function sessionDetailView(main, { id }) {
     await loadObservations(1, editable);
   } catch (err) {
     message(feedback, 'error', errorText(err));
+    if (!session) {
+      feedback.prepend(h('a', { class: 'back-link', href: '#/sessions' }, icon('back'), t('sessions.back')));
+      clear(obsHolder);
+    }
   }
 
   main.append(h('section', { class: 'stack' },
-    h('a', { href: '#/sessions' }, `← ${t('sessions.back')}`),
-    feedback, summaryHolder, editorHolder, addHolder, obsHolder));
+    feedback, summaryHolder, editorHolder, addHolder, h('section', { class: 'stack' }, obsHolder)));
 }

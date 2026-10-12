@@ -1,7 +1,7 @@
-import { h, field, option, message, clear } from '../dom.js';
+import { h, field, option, message, clear, icon, iconChip } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
-import { errorText } from './common.js';
+import { errorText, pageHeader } from './common.js';
 
 const FIELDS = ['date', 'checkpoint', 'passenger_group_code', 'pax', 'flight_no', 'counter', 'arrival_time', 'service_start', 'service_end', 'observer'];
 
@@ -20,7 +20,7 @@ export async function importView(main) {
   const previewHolder = h('div', { class: 'stack' });
 
   const fileInput = h('input', { type: 'file', id: 'import-file', accept: '.xlsx,.xls,.csv', required: true, autocomplete: 'off' });
-  const uploadButton = h('button', { type: 'submit' }, t('import.upload'));
+  const uploadButton = h('button', { type: 'submit' }, icon('import'), t('import.upload'));
   const uploadForm = h('form', { class: 'card stack', autocomplete: 'off', onsubmit: async (event) => {
     event.preventDefault();
     const file = fileInput.files[0];
@@ -37,7 +37,9 @@ export async function importView(main) {
     } finally {
       uploadButton.disabled = false;
     }
-  } }, h('div', { class: 'field' }, h('label', { for: 'import-file' }, t('import.file')), fileInput), uploadButton);
+  } },
+  h('div', { class: 'card-title' }, iconChip('import', 'teal'), h('div', {}, h('h2', {}, t('import.step1')), h('p', { class: 'muted' }, t('import.formats')))),
+  h('div', { class: 'field' }, h('label', { for: 'import-file' }, t('import.file')), fileInput), h('div', { class: 'actions' }, uploadButton));
 
   /** One preview's lifetime: its own choices, discarded on the next upload. */
   function startPreview(initial) {
@@ -56,7 +58,7 @@ export async function importView(main) {
     function render() {
       clear(previewHolder);
       const p = current;
-      previewHolder.append(h('p', { class: 'message' }, `${p.filename}: ${t('import.nothingWritten')}`));
+      previewHolder.append(h('p', { class: 'message info' }, h('strong', {}, p.filename), `: ${t('import.nothingWritten')}`));
 
       if (p.duplicate) {
         previewHolder.append(h('div', { class: 'message error', role: 'alert' },
@@ -87,7 +89,7 @@ export async function importView(main) {
     }
 
     function mappingTable(p) {
-      return h('section', { class: 'stack' }, h('h2', {}, t('import.mapping')),
+      return h('section', { class: 'card stack' }, h('h2', {}, t('import.mapping')),
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('import.field'), t('import.column'), t('import.confidence')].map((l) => h('th', { scope: 'col' }, l)))),
           h('tbody', {}, FIELDS.map((f) => {
@@ -134,7 +136,7 @@ export async function importView(main) {
     }
 
     function groupsTable(p, targetControls) {
-      return h('section', { class: 'stack' }, h('h2', {}, t('import.sessions')), h('p', { class: 'muted' }, t('import.sessionsHelp')),
+      return h('section', { class: 'card stack' }, h('h2', {}, t('import.sessions')), h('p', { class: 'muted' }, t('import.sessionsHelp')),
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('sessions.checkpoint'), t('sessions.date'), t('sessions.shift'), t('import.rows'), t('sessions.pax'), t('import.target')]
             .map((l) => h('th', { scope: 'col' }, l)))),
@@ -180,7 +182,7 @@ export async function importView(main) {
           button.textContent = t('import.commit', { rows: p.accepted_count, groups: p.groups.length });
         }
       } }, t('import.commit', { rows: p.accepted_count, groups: p.groups.length }));
-      return h('div', { class: 'stack' },
+      return h('div', { class: 'card stack' },
         p.blocking_reasons.length > 0 ? h('div', { class: 'message error' }, t('import.blocked'), h('ul', {}, p.blocking_reasons.map((r) => h('li', {}, r)))) : null,
         result, button);
     }
@@ -198,5 +200,7 @@ export async function importView(main) {
       h('ul', {}, batch.split_summary.map((s) => h('li', {}, h('a', { href: `#/sessions/${s.session_id}` }, `${s.checkpoint_name} — ${s.date}`), ` (${s.row_count})`)))));
   }
 
-  main.append(h('section', { class: 'stack' }, h('h1', {}, t('import.title')), uploadForm, feedback, previewHolder));
+  main.append(h('section', { class: 'stack' },
+    pageHeader(t('import.title'), { subtitle: t('import.subtitle') }),
+    uploadForm, feedback, previewHolder));
 }

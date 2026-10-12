@@ -3,6 +3,7 @@ import { t } from '../i18n.js';
 import { login } from '../auth.js';
 import { navigate } from '../router.js';
 import { errorText } from './common.js';
+import { authLayout } from './authLayout.js';
 
 export async function loginView(main) {
   const email = field(t('login.email'), 'input', { type: 'email', name: 'email', autocomplete: 'username', required: true });
@@ -10,7 +11,7 @@ export async function loginView(main) {
   const feedback = h('div', { 'aria-live': 'polite' });
   const submit = h('button', { type: 'submit' }, t('login.submit'));
 
-  const form = h('form', { class: 'card stack', novalidate: true, onsubmit: async (event) => {
+  const form = h('form', { novalidate: true, onsubmit: async (event) => {
     event.preventDefault();
     submit.disabled = true;
     message(feedback);
@@ -24,9 +25,12 @@ export async function loginView(main) {
     } finally {
       submit.disabled = false;
     }
-  } }, h('h1', {}, t('login.title')), email.wrapper, password.wrapper, feedback, submit,
-  h('p', { class: 'muted' }, `${t('login.noAccount')} `, h('a', { href: '#/signup' }, t('login.signupLink'))));
+  } }, email.wrapper, password.wrapper, feedback, submit);
 
-  main.append(h('div', { class: 'narrow' }, form));
+  main.append(authLayout(
+    h('h1', {}, t('login.title')),
+    h('p', { class: 'subtitle' }, t('login.subtitle')),
+    form,
+    h('p', { class: 'auth-switch' }, `${t('login.noAccount')} `, h('a', { href: '#/signup' }, t('login.signupLink')))));
   email.input.focus();
 }
